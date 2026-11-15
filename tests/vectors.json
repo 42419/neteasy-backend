@@ -1,0 +1,144 @@
+{
+  "weapi": {
+    "text": "{\"ids\":\"[347230]\",\"csrf_token\":\"\",\"note\":\"中文 test\"}",
+    "secret": "abcdefghijklmnop",
+    "params": "BToYSS6FhM7/sLgbhkqkHEavExsii4qJRZX/heexOg5xr0IPb4etsPVfKRpaZZgikB1VU1GqUxz1eSUKyC3wQKKnBFlvZ/0ZomkUxFwdlw21GEYxgS0p0goktZIbZa0d",
+    "encSecKey": "d15a1683c992095d0c234c19966605c5c5964911268bbeda8cb8d08d834913e59d53b32358903a121b5fca784c1f5ae44951fd02524df58ecc98e52cc7cf8689b42c2e93ddf05b0592512d87f5960467e2f086c018849d76014d323500e30f13ef4cafbb0cf5a66731a3f1776c75ca35d0062dac70a3e33245afabcf47938487"
+  },
+  "eapi": {
+    "url": "/api/song/enhance/player/url/v1",
+    "text": "{\"ids\":\"[347230]\",\"level\":\"exhigh\",\"header\":{\"os\":\"iPhone OS\"}}",
+    "params": "FA90B329E9614F79E79598F37DC2EDB487F00D1BC4C9B24CD57E6C318B9073569338432CD7D98D1A3626E997A2C53121C461EE0E88D3D1BF3F42E78643807A299C2FC721B3DDEEEAF7AD2C922A208A3DF048D45C85B445DF5E155DF2F7AF1DF523B222FA556B519635A905439507E18E0184AFAAA39E6B8C8849A8A48DAAF35195564986A7A8844DACA49CC9888F646AC2E883322BBDE5D20EE4CE38B7903CC7"
+  },
+  "eapi_res": {
+    "plain": "{\"code\":200,\"data\":[{\"id\":347230,\"url\":\"https://x/y.mp3\"}]}",
+    "enc_hex": "dcc52b3013e9b66c038f8e027e580ece6060e35f0a9f5a11f72ed4195aa9f88b299d813390082118a2040a2dd13508eefa0678aaddcaddc0fd0fb9ec3e0cf70c",
+    "gz_enc_hex": "ce31fb563b323757babec700dbc62dbe540dac92f14bd9ce60f93a372f1b29a0c1d11e3784878e1d92e60df3c87a8836728d21a1e42e0d9c841a9b178020b1aabeb763cc682487dc589e7cbbe70d18ce"
+  },
+  "xeapi_res": {
+    "plain": "{\"code\":200,\"data\":[{\"id\":347230,\"url\":\"https://x/y.mp3\"}]}",
+    "enc_hex": "dcc52b3013e9b66c038f8e027e580ece6060e35f0a9f5a11f72ed4195aa9f88b299d813390082118a2040a2dd13508eefa0678aaddcaddc0fd0fb9ec3e0cf70c",
+    "gz_enc_hex": "ce31fb563b323757babec700dbc62dbe540dac92f14bd9ce60f93a372f1b29a0c1d11e3784878e1d92e60df3c87a8836728d21a1e42e0d9c841a9b178020b1aabeb763cc682487dc589e7cbbe70d18ce"
+  },
+  "sign": {
+    "ts": "1763200000000",
+    "nonce": "0123456789012345",
+    "sig": "nu2GZWZpsGE0UQwJ2hfd9JshW8iM0zjUPxyRUyRIsQg="
+  },
+  "public_key": {
+    "blob": "wzmphXSFN8wie+mFb0b/0XobhVU5SfNRdP/y/gB3dSvb9p7QoXp3y9KbeASHp1CEXldrk8775OXh1+h8Jq0yfMaJieuHe1LcoLb7jIYTkis1vEvPWQtuECGPa+mTOoau",
+    "decoded": {
+      "publicKey": "ptHlzsaM9z0pKF5Vni87/kFLOLdtCOfM/XPlSC9DHD0=",
+      "version": "v7",
+      "sk": "SK-TEST-123"
+    }
+  },
+  "xeapi_basic": {
+    "uri": "/api/song/enhance/player/url/v1",
+    "body": [
+      [
+        "ids",
+        "[347230]"
+      ],
+      [
+        "level",
+        "exhigh"
+      ],
+      [
+        "encodeType",
+        "flac"
+      ],
+      [
+        "e_r",
+        "false"
+      ]
+    ],
+    "opts": {
+      "os": "android",
+      "sessionKey": null,
+      "sessionId": ""
+    },
+    "rand": {
+      "dynamic_key": "01060b10151a1f24292e33383d42474c",
+      "mid_random": "282d32373c41464b50555a5f64696e73",
+      "eph_secret": "090e13181d22272c31363b40454a4f54595e63686d72777c81868b90959a9fa4",
+      "gcm_iv": "4d52575c61666b70757a7f84"
+    },
+    "public_key": {
+      "publicKey": "ptHlzsaM9z0pKF5Vni87/kFLOLdtCOfM/XPlSC9DHD0=",
+      "version": "v7",
+      "sk": "SK-TEST-123"
+    },
+    "C": "4ALpNuf6RYx3fSOJHlwnLOnwS4VnPnX9MYd8Vm0fX5zqR5hnxKImRZNWNvpjlehLXo04TSKIoTCihczDR28vJIs-4ixtZw1rw4VeWJHY4PpP-UX0McG9pf6CBhwmn2BBxLkCCtsZh4HDLn6n316uHjFIz3CLDy0phacK9xl3iOc",
+    "S": "azDUTrVP3+pkiArWDg9W9ACzIqfeQ7jQB/8RgDLJkxJNUldcYWZrcHV6f4SD2+kvDft+r38uedY9cKHBdEtLMkQpBWgjzpNyqgTMrcZf6sAx0n+GEQ9UaLvFKrjJ5DB1IHm40GUaT2o=",
+    "R": "6wpHvI2HYma7VDIHXm3prw=="
+  },
+  "xeapi_unicode": {
+    "uri": "/api/register/anonimous?x=1",
+    "body": [
+      [
+        "username",
+        "abc=="
+      ],
+      [
+        "keyword",
+        "周杰伦 test&=+"
+      ],
+      [
+        "e_r",
+        "false"
+      ]
+    ],
+    "opts": {
+      "os": "android",
+      "sessionKey": null,
+      "sessionId": ""
+    },
+    "rand": {
+      "dynamic_key": "01060b10151a1f24292e33383d42474c",
+      "mid_random": "282d32373c41464b50555a5f64696e73",
+      "eph_secret": "090e13181d22272c31363b40454a4f54595e63686d72777c81868b90959a9fa4",
+      "gcm_iv": "4d52575c61666b70757a7f84"
+    },
+    "public_key": {
+      "publicKey": "ptHlzsaM9z0pKF5Vni87/kFLOLdtCOfM/XPlSC9DHD0=",
+      "version": "v7",
+      "sk": "SK-TEST-123"
+    },
+    "C": "4ALpNuf6RYx3fSOJHlwnLOs0Ln9BIq-RtNLRpWqmTt3cqhthZst21ozB-dN0-HOLTcpKNERA8GDej0PfSKQOaQy6RzPjDb59SCp5K_gpezcwuLvi1SJOMX10TfM2OKEEGLASXERAmJ5wenkl32wneUQd8BfAONHADpZjdAL8dDoxSM9wiw8tKYWnCvcZd4jn",
+    "S": "azDUTrVP3+pkiArWDg9W9ACzIqfeQ7jQB/8RgDLJkxJNUldcYWZrcHV6f4SD2+kvDft+r38uedY9cKHBdEtLMkQpBWgjzpNyqgTMrcZf6sAx0n+GEQ9UaLvFKrjJ5DB1IHm40GUaT2o=",
+    "R": "6wpHvI2HYma7VDIHXm3prw=="
+  },
+  "xeapi_session": {
+    "uri": "/api/song/enhance/player/url/v1",
+    "body": [
+      [
+        "ids",
+        "[1]"
+      ],
+      [
+        "level",
+        "standard"
+      ]
+    ],
+    "opts": {
+      "os": "android",
+      "sessionKey": "0123456789abcdef",
+      "sessionId": "sess-1"
+    },
+    "rand": {
+      "dynamic_key": "01060b10151a1f24292e33383d42474c",
+      "mid_random": "282d32373c41464b50555a5f64696e73",
+      "eph_secret": "090e13181d22272c31363b40454a4f54595e63686d72777c81868b90959a9fa4",
+      "gcm_iv": "4d52575c61666b70757a7f84"
+    },
+    "public_key": {
+      "publicKey": "ptHlzsaM9z0pKF5Vni87/kFLOLdtCOfM/XPlSC9DHD0=",
+      "version": "v7",
+      "sk": "SK-TEST-123"
+    },
+    "C": "MC5hrT1_6pg8ofS0ODPSf_uUwSK28FsyBO975dlHswGjmXA052PYfA0Qxhdo-SCMpaSMycIjZDLdMtmCoDpTIAiZgSh8GnfjqCkEeW0RvqSrP0VwD2DA-hMkcoUJikMaN3Ii4GGpJMWRzZwn6hY-1A",
+    "S": "azDUTrVP3+pkiArWDg9W9ACzIqfeQ7jQB/8RgDLJkxJNUldcYWZrcHV6f4SPzvUaBcN6/3k9S5I+TaqcfSxTFkoPBWgjzpNyqgTMrcZf6sAx0n+GEQ9UaLMASX7vJRDGvE2I5jf+GdY=",
+    "R": "zwavV43H3s+Cr1YvGWCAmA=="
+  }
+}
