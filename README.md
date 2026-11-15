@@ -1,5 +1,7 @@
 # neteasy-backend
 
+English | [简体中文](README.zh-CN.md)
+
 Rust port of the [NeteaseCloudMusicApiEnhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
 (api-enhanced) endpoints used by the [neteasy](https://github.com/42419/neteasy) Android app.
 Serves the same HTTP interface on `127.0.0.1:19800` so the app's `ApiClient` keeps working unchanged;
