@@ -20,7 +20,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced.git "$RUNNER_TEMP/up"
           cd "$RUNNER_TEMP/up"
-          npm install --no-audit --no-fund --omit=dev > "$RUNNER_TEMP/npm.log" 2>&1 || true
+          npm install --no-audit --no-fund --omit=dev --ignore-scripts > "$RUNNER_TEMP/npm.log" 2>&1 || true
           echo "::notice title=npm::exit-ok node_modules=$(ls node_modules 2>/dev/null | wc -l) $(tail -n 3 "$RUNNER_TEMP/npm.log" | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 400)"
       - name: Start upstream
         run: |
