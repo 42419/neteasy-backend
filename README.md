@@ -69,8 +69,8 @@ Not ported (unused by the app): everything else in upstream `module/`.
 - `upstream-check.yml` (weekly): regenerates vectors from the latest upstream `crypto.js` and re-runs the crypto tests.
 - `smoke.yml` (manual): runs the server against the real NetEase servers and reports each endpoint's result as annotations.
 
-Note: GitHub runners are outside China, so live results there are region-affected (e.g. `/song/url/v1` returns 404
-without playable URLs even for the upstream Node server's cookie-less guest). Use a China network for real playback checks.
+Live A/B check (`compare.yml`) against upstream api-enhanced on the same runner: guest registration, `/song/url/v1`,
+`/playlist/track/all`, `/login/status`, `/song/detail` all agree; latency 0-2 s per call.
 
 Run locally: `cargo run -- --port 19800 --data-dir ./data`.
 

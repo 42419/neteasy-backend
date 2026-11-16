@@ -80,7 +80,8 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 - `upstream-check.yml`（每周）：用最新上游 `crypto.js` 重新生成对拍向量并跑加密测试，上游改了加密就会失败。
 - `smoke.yml`（手动）：对真实网易云服务器跑一遍各接口，结果以 annotation 形式输出。
 
-注意：GitHub runner 在境外，联网结果受地区影响（例如 `/song/url/v1` 拿不到可播放地址），真实播放请在国内网络下验证。
+在同一台 runner 上与上游 api-enhanced 做的联网 A/B 对照（`compare.yml`）：游客注册、`/song/url/v1`、
+`/playlist/track/all`、`/login/status`、`/song/detail` 结果一致，单次调用延迟 0~2 秒。
 
 本地运行：`cargo run -- --port 19800 --data-dir ./data`。
 
