@@ -1,7 +1,7 @@
 name: Compare with upstream (live)
 
-# Manual A/B check on the same runner: starts api-enhanced (Node) and this server side by side and calls the
-# same endpoints on both, so environment effects (region/IP) can be told apart from porting bugs.
+# 手动触发的 A/B 对照：在同一台 runner 上同时启动 api-enhanced（Node）和本项目的服务，
+# 对两者调用相同的接口，用来区分「环境影响（地区/IP）」和「移植 bug」。
 on:
   workflow_dispatch:
 

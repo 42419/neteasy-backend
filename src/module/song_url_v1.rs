@@ -1,10 +1,10 @@
-//! Port of api-enhanced `module/song_url_v1.js`.
+//! 移植自 api-enhanced 的 `module/song_url_v1.js`。
 use crate::util::index::{cookie_to_json, obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{AnswerResult, Request};
 use serde_json::json;
 
-/// `unblock=true` (unblockmusic-utils) is not supported in this port.
+/// 本移植版不支持 `unblock=true`（unblockmusic-utils 解灰）。
 pub async fn handle(query: Query, request: &Request) -> AnswerResult {
     let mut data = obj(json!({
         "ids": format!("[{}]", query.js("id")),
@@ -20,7 +20,7 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
         data.insert("encodeType".into(), json!("mp3"));
         options.cookie.insert("os".into(), "android".into());
         options.cookie.insert("appver".into(), "9.5.61".into());
-        let _ = cookie_to_json; // cookie already an object here (upstream normalises string cookies)
+        let _ = cookie_to_json; // 这里 cookie 已经是对象（上游会把字符串 cookie 先转成对象）
     }
     request.request("/api/song/enhance/player/url/v1", data, options).await
 }

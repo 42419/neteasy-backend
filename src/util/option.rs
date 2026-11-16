@@ -1,4 +1,4 @@
-//! Mirrors api-enhanced `util/option.js`.
+//! 对应 api-enhanced 的 `util/option.js`：单次请求的选项。
 
 use super::index::{Cookie, Query};
 use serde_json::Value;
@@ -9,7 +9,7 @@ pub struct Options {
     pub cookie: Cookie,
     pub ua: String,
     pub real_ip: String,
-    /// client address as seen by the server (upstream `options.ip`)
+    /// 服务器看到的客户端地址（上游的 `options.ip`）
     pub ip: String,
     pub e_r: Option<Value>,
     pub domain: String,
@@ -17,7 +17,7 @@ pub struct Options {
     pub timeout_ms: u64,
 }
 
-/// `createOption(query, crypto = '', checkToken = false)`
+/// 对应 `createOption(query, crypto = '', checkToken = false)`
 pub fn create_option(query: &Query, crypto: &str) -> Options {
     create_option_with(query, crypto, "")
 }

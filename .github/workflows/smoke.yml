@@ -1,8 +1,7 @@
 name: Live smoke test
 
-# Manual: builds the server, lets it bootstrap (xeapi key + guest token) and calls the endpoints the
-# app depends on against the real NetEase servers. Results are condensed into a few annotations
-# (GitHub shows at most 10 notices per step).
+# 手动触发：构建服务，等它完成引导（xeapi 公钥 + 游客 token），然后对真实的网易云服务器
+# 调用 App 依赖的接口。结果压缩成少量 annotation 输出（GitHub 每个 step 最多显示 10 条 notice）。
 on:
   workflow_dispatch:
 

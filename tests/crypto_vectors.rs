@@ -1,4 +1,4 @@
-//! Byte-for-byte cross-checks against api-enhanced `util/crypto.js` (vectors from scripts/gen_vectors.js).
+//! 与 api-enhanced 的 `util/crypto.js` 逐字节对拍（向量由 scripts/gen_vectors.js 生成）。
 use neteasy_backend::util::crypto::*;
 use serde_json::Value;
 

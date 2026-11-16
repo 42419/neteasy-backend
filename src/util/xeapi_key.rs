@@ -1,11 +1,11 @@
-//! Mirrors api-enhanced `util/xeapiKey.js`.
+//! 对应 api-enhanced 的 `util/xeapiKey.js`：xeapi 公钥的获取与解析。
 
 use super::crypto::XeapiPublicKey;
 use super::index::{js_string, Query};
 use super::request::Request;
 use crate::module::register_xeapikey;
 
-/// `getXeapiPublicKey(currentPublicKey, deviceId)`
+/// 对应 `getXeapiPublicKey(currentPublicKey, deviceId)`
 pub async fn get_xeapi_public_key(
     request: &Request,
     current: Option<&XeapiPublicKey>,

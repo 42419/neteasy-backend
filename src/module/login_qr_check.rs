@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/login_qr_check.js`.
+//! 移植自 api-enhanced 的 `module/login_qr_check.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{Answer, AnswerResult, Request};
@@ -14,8 +14,8 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
             }
             Ok(Answer::new(200, body, result.cookie))
         }
-        // upstream's catch block dereferences an out-of-scope `result` (ReferenceError), so errors
-        // surface through the server as 404 "Not Found"; keep that observable behaviour.
+        // 上游的 catch 块引用了作用域外的 `result`（会抛 ReferenceError），所以出错时
+        // 经服务器对外表现为 404 "Not Found"；这里保持同样的对外行为。
         Err(_) => Err(Answer::new(500, Value::Null, vec![])),
     }
 }

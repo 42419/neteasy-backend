@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/login_status.js`.
+//! 移植自 api-enhanced 的 `module/login_status.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{Answer, AnswerResult, Request};

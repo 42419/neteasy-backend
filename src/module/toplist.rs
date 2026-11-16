@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/toplist.js`.
+//! 移植自 api-enhanced 的 `module/toplist.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{AnswerResult, Request};

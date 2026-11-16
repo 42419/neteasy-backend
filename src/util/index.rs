@@ -1,14 +1,14 @@
-//! Mirrors api-enhanced `util/index.js`: cookie helpers, device id, small shared utilities.
+//! 对应 api-enhanced 的 `util/index.js`：cookie 工具、设备 ID 等通用小工具。
 
 use indexmap::IndexMap;
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use rand::Rng;
 use serde_json::{Map, Value};
 
-/// Ordered cookie map (insertion order is preserved like a JS object).
+/// 有序的 cookie 映射（和 JS 对象一样保留插入顺序）。
 pub type Cookie = IndexMap<String, String>;
 
-/// JS `encodeURIComponent` keeps `A-Za-z0-9 - _ . ! ~ * ' ( )`.
+/// JS 的 `encodeURIComponent` 不转义 `A-Za-z0-9 - _ . ! ~ * ' ( )`。
 const URI_COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'_')
@@ -24,12 +24,12 @@ pub fn encode_uri_component(s: &str) -> String {
     utf8_percent_encode(s, URI_COMPONENT).to_string()
 }
 
-/// `safe-decode-uri-component`: decode, but never fail (invalid sequences are kept as-is).
+/// 对应 `safe-decode-uri-component`：解码，但永不失败（非法序列原样保留）。
 pub fn decode_uri_component(s: &str) -> String {
     percent_decode_str(s).decode_utf8_lossy().into_owned()
 }
 
-/// `toBoolean`
+/// 对应 `toBoolean`
 pub fn to_boolean(v: &Value) -> bool {
     match v {
         Value::Bool(b) => *b,
@@ -39,7 +39,7 @@ pub fn to_boolean(v: &Value) -> bool {
     }
 }
 
-/// `cookieToJson`: split on the first `=` only, keep `=` inside values.
+/// 对应 `cookieToJson`：只按第一个 `=` 切分，值里的 `=` 原样保留。
 pub fn cookie_to_json(cookie: &str) -> Cookie {
     let mut obj = Cookie::new();
     for item in cookie.split(';') {
@@ -55,12 +55,12 @@ pub fn cookie_to_json(cookie: &str) -> Cookie {
     obj
 }
 
-/// `hasCookie`
+/// 对应 `hasCookie`
 pub fn has_cookie(c: &Cookie) -> bool {
     !c.is_empty()
 }
 
-/// `cookieObjToString`
+/// 对应 `cookieObjToString`
 pub fn cookie_obj_to_string(c: &Cookie) -> String {
     c.iter()
         .map(|(k, v)| format!("{}={}", encode_uri_component(k), encode_uri_component(v)))
@@ -68,14 +68,14 @@ pub fn cookie_obj_to_string(c: &Cookie) -> String {
         .join("; ")
 }
 
-/// `generateDeviceId`: 52 upper-case hex chars.
+/// 对应 `generateDeviceId`：52 位大写十六进制字符。
 pub fn generate_device_id() -> String {
     const HEX: &[u8] = b"0123456789ABCDEF";
     let mut rng = rand::thread_rng();
     (0..52).map(|_| HEX[rng.gen_range(0..16)] as char).collect()
 }
 
-/// `generateChainId`
+/// 对应 `generateChainId`
 pub fn generate_chain_id(cookie: &Cookie) -> String {
     let device = cookie
         .get("sDeviceId")
@@ -91,7 +91,7 @@ pub fn now_ms() -> u128 {
         .unwrap_or(0)
 }
 
-/// JS `String(value)` for the scalar values that appear in request bodies.
+/// 等价于 JS 的 `String(value)`，用于请求体里出现的标量值。
 pub fn js_string(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
@@ -140,13 +140,13 @@ mod tests {
     }
 }
 
-/// The `query` object handed to every module (upstream: merged req.query + req.body + resolved cookie).
-/// Request parameters arrive as strings, exactly like the Express query object.
+/// 传给每个模块的 `query` 对象（上游：合并后的 req.query + req.body + 解析后的 cookie）。
+/// 请求参数都是字符串，和 Express 的 query 对象一致。
 #[derive(Clone, Debug, Default)]
 pub struct Query {
     pub params: IndexMap<String, String>,
     pub cookie: Cookie,
-    /// peer address of the HTTP client (upstream: `req.ip`)
+    /// HTTP 客户端的对端地址（上游的 `req.ip`）
     pub ip: String,
 }
 
@@ -155,24 +155,24 @@ impl Query {
         self.params.get(key).map(|s| s.as_str())
     }
 
-    /// JS truthiness of a string param: present and non-empty.
+    /// 字符串参数的 JS 真值判断：存在且非空。
     pub fn truthy(&self, key: &str) -> Option<&str> {
         self.get(key).filter(|s| !s.is_empty())
     }
 
-    /// `query.key` as a JSON value (string) or `undefined` -> `Value::Null`-free `None`.
+    /// 把 `query.key` 当作 JSON 字符串值返回；对应 JS 里的 `undefined` 时返回 `None`。
     pub fn val(&self, key: &str) -> Option<Value> {
         self.get(key).map(|s| Value::String(s.to_string()))
     }
 
-    /// `query.key || default`
+    /// 对应 `query.key || default`
     pub fn or(&self, key: &str, default: Value) -> Value {
         self.truthy(key)
             .map(|s| Value::String(s.to_string()))
             .unwrap_or(default)
     }
 
-    /// `query.key` serialised for template strings (undefined -> "undefined", like JS).
+    /// 用于字符串模板的 `query.key`（缺失时和 JS 一样得到 "undefined"）。
     pub fn js(&self, key: &str) -> String {
         self.get(key)
             .map(|s| s.to_string())
@@ -180,7 +180,7 @@ impl Query {
     }
 }
 
-/// Build a request `data` object from a `json!({...})` literal (insertion order preserved).
+/// 由 `json!({...})` 字面量构造请求的 `data` 对象（保留插入顺序）。
 pub fn obj(v: Value) -> Data {
     match v {
         Value::Object(m) => m,

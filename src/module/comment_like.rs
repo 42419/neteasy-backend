@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/comment_like.js`.
+//! 移植自 api-enhanced 的 `module/comment_like.js`。
 use crate::util::config::resource_type;
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;

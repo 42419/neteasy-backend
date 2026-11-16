@@ -1,8 +1,8 @@
-//! Mirrors api-enhanced `server.js`: HTTP routing, query/body/cookie merging into `Query`,
-//! module dispatch, `Set-Cookie` forwarding and the error envelope.
+//! 对应 api-enhanced 的 `server.js`：HTTP 路由、把 query/body/cookie 合并成 `Query`、
+//! 分发给模块、转发 `Set-Cookie`，以及统一的错误响应格式。
 //!
-//! Deviations (documented): no static pages, no 2-minute GET response cache, no CORS middleware
-//! (the server only listens on loopback for the app).
+//! 与上游的差异（已记录）：没有静态页面、没有 2 分钟的 GET 响应缓存、没有 CORS 中间件
+//!（服务只监听本机回环地址，仅供 App 使用）。
 
 use crate::module::{registry, ModuleFn};
 use crate::util::index::{
@@ -113,7 +113,7 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
         .unwrap_or_default();
     let body_text = String::from_utf8_lossy(&bytes).into_owned();
 
-    // Object.assign({}, req.query, req.body, { cookie })
+    // 对应上游的 Object.assign({}, req.query, req.body, { cookie })
     let mut params = indexmap::IndexMap::<String, String>::new();
     for (k, v) in parse_pairs(&query_str) {
         params.insert(k, v);
@@ -129,7 +129,7 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
             }
         }
     }
-    // hasCookie order: body/query `cookie` param, otherwise the request's Cookie header
+    // cookie 的取值顺序：先取 body/query 里的 `cookie` 参数，没有再取请求的 Cookie 头
     let cookie_param = params.shift_remove("cookie");
     let mut cookie = Cookie::new();
     if let Some(c) = cookie_param.filter(|c| !c.is_empty()) {

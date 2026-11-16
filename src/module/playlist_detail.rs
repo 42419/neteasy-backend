@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/playlist_detail.js`.
+//! 移植自 api-enhanced 的 `module/playlist_detail.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{AnswerResult, Request};

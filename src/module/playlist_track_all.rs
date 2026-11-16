@@ -1,10 +1,10 @@
-//! Port of api-enhanced `module/playlist_track_all.js`.
+//! 移植自 api-enhanced 的 `module/playlist_track_all.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{Answer, AnswerResult, Request};
 use serde_json::{json, Value};
 
-/// JS `parseInt(x) || default`
+/// 等价于 JS 的 `parseInt(x) || default`
 fn parse_int_or(v: Option<&str>, default: usize) -> usize {
     v.and_then(|s| s.trim().parse::<usize>().ok()).filter(|n| *n != 0).unwrap_or(default)
 }
@@ -18,7 +18,7 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
     let limit = parse_int_or(query.get("limit"), 1000);
     let offset = query.get("offset").and_then(|s| s.trim().parse::<usize>().ok()).unwrap_or(0);
     let res = request.request("/api/v6/playlist/detail", data, create_option(&query, "")).await?;
-    // upstream throws a TypeError (no body -> 404) when the playlist is missing
+    // 歌单不存在时上游会抛 TypeError（没有 body，对外表现为 404）
     let track_ids = res
         .body
         .pointer("/playlist/trackIds")

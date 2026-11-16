@@ -1,8 +1,8 @@
-//! Mirrors api-enhanced `util/request.js`: builds the encrypted request for a given crypto mode,
-//! sends it, decrypts/normalises the response into an [`Answer`].
+//! 对应 api-enhanced 的 `util/request.js`：按加密方式构造加密请求、发送，
+//! 并把响应解密、规整成 [`Answer`]。
 //!
-//! Supported crypto modes: `weapi`, `eapi`, `api`, `xeapi` (the ones the neteasy app needs).
-//! `linuxapi` / `neapi` / `checkToken` (anti-cheat) are intentionally not ported.
+//! 支持的加密方式：`weapi`、`eapi`、`api`、`xeapi`（neteasy 应用用到的）。
+//! `linuxapi` / `neapi` / `checkToken`（反作弊）有意不移植。
 
 use super::config::*;
 use super::crypto::{self, XeapiOptions, XeapiPublicKey};
@@ -16,7 +16,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::watch;
 
-/// Upstream module contract: `{ status, body, cookie, redirectUrl? }`.
+/// 上游的模块返回约定：`{ status, body, cookie, redirectUrl? }`。
 #[derive(Clone, Debug)]
 pub struct Answer {
     pub status: u16,
@@ -90,7 +90,7 @@ fn os_map(name: &str) -> OsInfo {
     }
 }
 
-/// Mutable runtime state (upstream keeps these in module-level variables / tmpdir files).
+/// 可变的运行时状态（上游把这些放在模块级变量和临时目录文件里）。
 #[derive(Default)]
 struct State {
     device_id: String,
@@ -110,14 +110,14 @@ struct Inner {
     ready: watch::Sender<bool>,
 }
 
-/// Shared handle to the request pipeline. Cheap to clone.
+/// 请求管线的共享句柄，克隆开销很小。
 #[derive(Clone)]
 pub struct Request {
     inner: Arc<Inner>,
     wait_ready: bool,
 }
 
-/// A fully built outgoing request (kept separate from sending so it can be unit-tested).
+/// 构造完成、待发送的请求（与发送分开，便于单元测试）。
 #[derive(Debug)]
 pub struct Prepared {
     pub url: String,
@@ -126,7 +126,7 @@ pub struct Prepared {
     pub crypto: String,
     pub use_e_r: bool,
     pub use_xeapi: bool,
-    /// whether the NMTID probe applies (eapi without NMTID)
+    /// 是否需要探测 NMTID（eapi 且还没有 NMTID）
     pub nmtid_probe: bool,
 }
 
@@ -137,7 +137,7 @@ fn random_hex(bytes: usize) -> String {
 }
 
 fn clean_set_cookie(c: &str) -> String {
-    // upstream: x.replace(/\s*Domain=[^(;|$)]+;*/, '')
+    // 上游写法：x.replace(/\s*Domain=[^(;|$)]+;*/, '')（去掉 Set-Cookie 里的 Domain 属性）
     let parts: Vec<&str> = c
         .split(';')
         .map(|p| p.trim())
@@ -198,7 +198,7 @@ impl Request {
         }
     }
 
-    /// Handle used by the bootstrap itself (must not wait for the bootstrap to finish).
+    /// 引导流程自己使用的句柄（不能等待引导完成，否则会死锁）。
     pub fn for_bootstrap(&self) -> Request {
         Request {
             inner: self.inner.clone(),
@@ -239,7 +239,7 @@ impl Request {
     }
 
     pub fn mark_ready(&self) {
-        // send_replace: `send` would not update the value while no receiver is subscribed yet
+        // 用 send_replace：没有订阅者时 `send` 不会更新值
         self.inner.ready.send_replace(true);
     }
 
@@ -255,7 +255,7 @@ impl Request {
         if *rx.borrow() {
             return;
         }
-        // first run: wait for device id / xeapi key / anonymous token, but never hang forever
+        // 首次运行：等待设备 ID、xeapi 公钥和游客 token 就绪，但最多等 20 秒，不会一直挂起
         let _ = tokio::time::timeout(Duration::from_secs(20), rx.wait_for(|v| *v)).await;
     }
 
@@ -302,7 +302,7 @@ impl Request {
         c
     }
 
-    /// Build the outgoing request for `uri` (e.g. `/api/song/detail`) — upstream `createRequest` up to `axios(settings)`.
+    /// 为 `uri`（如 `/api/song/detail`）构造待发送的请求，对应上游 `createRequest` 里到 `axios(settings)` 之前的部分。
     pub fn prepare(
         &self,
         uri: &str,
@@ -313,12 +313,12 @@ impl Request {
         if crypto_mode.is_empty() {
             crypto_mode = if ENCRYPT { "eapi".into() } else { "api".into() };
         }
-        // axios sends string bodies as form-urlencoded by default; reqwest needs it spelled out
+        // axios 对字符串 body 默认按 form-urlencoded 发送；reqwest 需要显式声明
         let mut headers: Vec<(String, String)> = vec![(
             "Content-Type".into(),
             "application/x-www-form-urlencoded".into(),
         )];
-        // upstream: `const ip = options.realIP || options.ip || ''` (ip = the client's address as seen by the server)
+        // 上游：`const ip = options.realIP || options.ip || ''`（ip 是服务器看到的客户端地址）
         let ip = if options.real_ip.is_empty() {
             options.ip.clone()
         } else {
@@ -536,7 +536,7 @@ impl Request {
         })
     }
 
-    /// Upstream `request(uri, data, options)`.
+    /// 对应上游的 `request(uri, data, options)`。
     pub async fn request(
         &self,
         uri: &str,
@@ -763,7 +763,7 @@ mod tests {
     async fn mark_ready_releases_waiters_even_without_subscribers() {
         let r = req();
         r.mark_ready();
-        // must return immediately, not after the 20 s bootstrap timeout
+        // 必须立即返回，而不是等到 20 秒的引导超时
         tokio::time::timeout(Duration::from_millis(500), r.wait_until_ready())
             .await
             .expect("ready");

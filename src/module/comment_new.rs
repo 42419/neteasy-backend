@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/comment_new.js`.
+//! 移植自 api-enhanced 的 `module/comment_new.js`。
 use crate::util::config::resource_type;
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
@@ -23,7 +23,7 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
         sort_type = 99;
     }
     let offset = ((num(&page_no) - 1.0) * num(&page_size)) as i64;
-    // 99: recommended, 2: hot, 3: time
+    // 99：推荐，2：热度，3：时间
     let cursor: Value = match sort_type {
         99 => json!(offset),
         2 => json!(format!("normalHot#{offset}")),

@@ -1,7 +1,7 @@
 name: Upstream crypto check
 
-# Regenerates the cross-check vectors from the *latest* api-enhanced `util/crypto.js` and runs the
-# crypto tests. A failure means upstream changed its crypto and the Rust port must follow.
+# 用「最新」的 api-enhanced `util/crypto.js` 重新生成对拍向量并跑加密测试。
+# 失败说明上游改了加密逻辑，Rust 移植版需要跟进。
 on:
   schedule:
     - cron: "0 3 * * 1"

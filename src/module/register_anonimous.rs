@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/register_anonimous.js`.
+//! 移植自 api-enhanced 的 `module/register_anonimous.js`。
 use crate::util::index::{generate_device_id, obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{Answer, AnswerResult, Request};
@@ -13,8 +13,8 @@ fn cloudmusic_dll_encode_id(id: &str) -> String {
     STANDARD.encode(Md5::digest(&xored))
 }
 
-/// Guest cookie. Difference from upstream: the device id is generated only when none is stored yet
-/// (upstream regenerates it on every start), so the device id / xeapi key / token stay consistent across runs.
+/// 游客 cookie。与上游的差异：只有在还没保存设备 ID 时才生成新的
+///（上游每次启动都重新生成），这样设备 ID、xeapi 公钥和 token 在多次运行间保持一致。
 pub async fn handle(query: Query, request: &Request) -> AnswerResult {
     let mut device_id = request.device_id();
     if device_id.is_empty() {

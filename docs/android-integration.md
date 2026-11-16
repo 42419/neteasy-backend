@@ -48,7 +48,7 @@ connection-refused retry loop in `ApiClient` is no longer needed on cold start (
 ## 4. Notes
 
 - Logs go to logcat with tag `neteasy-backend`.
-- `/comment/add` is not ported yet (needs the anti-cheat token); everything else the app calls is.
+- Posting comments (`/comment/add`) is out of scope and will not be implemented; fetching comments works. Everything else the app calls is ported.
 - Native method names are kept by the default R8 rules (`-keepclasseswithmembernames` for natives).
 
 ---
@@ -86,5 +86,5 @@ pnpm 安装和补丁相关的 Gradle 任务。端口在第一次网络请求之�
 ### 4. 说明
 
 - 日志在 logcat，tag 为 `neteasy-backend`。
-- `/comment/add` 暂未移植（需要反作弊 token），App 用到的其余接口都已移植。
+- 发评论（`/comment/add`）不在范围内，不会实现；获取评论可用。App 用到的其余接口都已移植。
 - 默认的 R8 规则会保留 native 方法名，无需额外 keep。

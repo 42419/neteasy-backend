@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/search.js`.
+//! 移植自 api-enhanced 的 `module/search.js`。
 use crate::util::index::{obj, Query};
 use crate::util::option::create_option;
 use crate::util::request::{AnswerResult, Request};
@@ -14,7 +14,7 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
         }));
         return request.request("/api/search/voice/get", data, create_option(&query, "")).await;
     }
-    // type: 1 single, 10 album, 100 artist, 1000 playlist, 1002 user, 1004 MV, 1006 lyric, 1009 radio, 1014 video
+    // type：1 单曲，10 专辑，100 歌手，1000 歌单，1002 用户，1004 MV，1006 歌词，1009 电台，1014 视频
     let data = obj(json!({
         "s": query.val("keywords"),
         "type": query.or("type", json!(1)),

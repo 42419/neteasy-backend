@@ -1,6 +1,6 @@
 name: Release
 
-# Tag `vX.Y.Z` -> builds jniLibs for all ABIs and attaches a zip to the GitHub release.
+# 打 `vX.Y.Z` 标签后：构建所有 ABI 的 jniLibs，并把压缩包附加到 GitHub Release。
 on:
   push:
     tags: ["v*"]

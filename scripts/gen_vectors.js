@@ -1,6 +1,6 @@
-// Generates tests/vectors.json by running api-enhanced's util/crypto.js with injected randomness.
-// Usage: node scripts/gen_vectors.js <path-to-api-enhanced>/util/crypto.js
-// (needs `crypto-js` and `node-forge` resolvable from that file; './zstd' may be stubbed)
+// 注入固定随机数后运行 api-enhanced 的 util/crypto.js，生成 tests/vectors.json（Rust 对拍用的向量）。
+// 用法：node scripts/gen_vectors.js <api-enhanced 目录>/util/crypto.js
+// （该文件所在位置需要能解析到 `crypto-js` 和 `node-forge`；'./zstd' 可以桩成空模块）
 const path = require('path')
 const fs = require('fs')
 const nodeCrypto = require('crypto')
@@ -9,7 +9,7 @@ const zlib = require('zlib')
 const cryptoJsPath = path.resolve(process.argv[2] || '../api-enhanced/util/crypto.js')
 const out = path.resolve(__dirname, '../tests/vectors.json')
 
-// ---- deterministic randomness
+// ---- 确定性的随机数
 let randomQueue = []
 nodeCrypto.randomBytes = (n) => {
   const b = randomQueue.shift()
@@ -35,7 +35,7 @@ const enc = require(cryptoJsPath)
 
 const v = {}
 
-// ---- weapi
+// ---- weapi 加密
 {
   const text = JSON.stringify({ ids: '[347230]', csrf_token: '', note: '中文 test' })
   const idx = Array.from({ length: 16 }, (_, i) => i)
@@ -46,14 +46,14 @@ const v = {}
   v.weapi = { text, secret: 'abcdefghijklmnop', params: r.params, encSecKey: r.encSecKey }
 }
 
-// ---- eapi
+// ---- eapi 加密
 {
   const url = '/api/song/enhance/player/url/v1'
   const text = JSON.stringify({ ids: '[347230]', level: 'exhigh', header: { os: 'iPhone OS' } })
   v.eapi = { url, text, params: enc.eapi(url, text).params }
 }
 
-// ---- eapi / xeapi response decrypt
+// ---- eapi / xeapi 响应解密
 {
   const ecb = (buf) => {
     const c = nodeCrypto.createCipheriv('aes-128-ecb', Buffer.from('e82ckenh8dichen8'), Buffer.alloc(0))
@@ -68,7 +68,7 @@ const v = {}
   v.xeapi_res = { plain: body, enc_hex: v.eapi_res.enc_hex, gz_enc_hex: v.eapi_res.gz_enc_hex }
 }
 
-// ---- xeapi sign + public key blob
+// ---- xeapi 签名与公钥密文
 {
   v.sign = { ts: '1763200000000', nonce: '0123456789012345', sig: enc.xeapiSign('1763200000000', '0123456789012345') }
   const staticKey = Buffer.from('ab1d5a430f6bb04a3f01e81ddd72bd916d5ce591248ac128714806d7f8fb1b84', 'hex')
@@ -83,7 +83,7 @@ const v = {}
   v.public_key = { blob, decoded: pub }
 }
 
-// ---- xeapi requests
+// ---- xeapi 请求
 const xeapiCase = (name, uri, data, opts) => {
   const dyn = seq(16, 1), mid = seq(16, 40), iv = seq(12, 77)
   ephSeed = seq(32, 9)

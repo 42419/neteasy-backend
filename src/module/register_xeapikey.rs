@@ -1,4 +1,4 @@
-//! Port of api-enhanced `module/register_xeapikey.js`.
+//! 移植自 api-enhanced 的 `module/register_xeapikey.js`。
 use crate::util::crypto;
 use crate::util::config::API_DOMAIN;
 use crate::util::index::{now_ms, Query};
@@ -9,7 +9,7 @@ fn generate_nonce() -> String {
     (0..16).map(|_| char::from(b'0' + rand::random::<u8>() % 10)).collect()
 }
 
-/// Fetch (and verify the signature of) the xeapi public key state for `deviceId`.
+/// 获取 `deviceId` 对应的 xeapi 公钥状态，并校验响应签名。
 pub async fn handle(query: Query, request: &Request) -> AnswerResult {
     let nonce = generate_nonce();
     let timestamp = now_ms().to_string();

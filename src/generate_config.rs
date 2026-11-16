@@ -1,6 +1,6 @@
-//! Mirrors api-enhanced `generateConfig.js`: bootstrap the xeapi public key and the anonymous (guest)
-//! token. Runs in the background after the server is listening; requests made before it finishes
-//! wait (bounded) instead of failing, and a cached state from the previous run is usable immediately.
+//! 对应 api-enhanced 的 `generateConfig.js`：初始化 xeapi 公钥和游客（匿名）token。
+//! 在服务开始监听之后于后台运行；引导完成前发来的请求会有限时地等待而不是直接失败，
+//! 上一次运行缓存下来的状态可以立即使用。
 
 use crate::module::register_anonimous;
 use crate::util::index::{cookie_to_json, generate_device_id, Query};
@@ -14,7 +14,7 @@ pub async fn generate_config(request: &Request) {
     }
     let device_id = req.device_id();
 
-    // 1) xeapi public key (the `sk` is bound to the device id)
+    // 1) xeapi 公钥（其中的 `sk` 与设备 ID 绑定）
     match get_xeapi_public_key(&req, req.xeapi_public_key().as_ref(), &device_id).await {
         Ok(key) => {
             log::info!(
@@ -26,7 +26,7 @@ pub async fn generate_config(request: &Request) {
         Err(e) => log::warn!("[generate_config] xeapi public key: {e}"),
     }
 
-    // 2) anonymous token (MUSIC_A)
+    // 2) 游客 token（MUSIC_A）
     match register_anonimous::handle(Query::default(), &req).await {
         Ok(answer) => {
             let cookie = answer

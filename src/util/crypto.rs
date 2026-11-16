@@ -1,7 +1,7 @@
-//! NetEase request/response crypto: weapi, eapi, xeapi (ported from api-enhanced `util/crypto.js`).
+//! 网易云请求/响应的加解密：weapi、eapi、xeapi（移植自 api-enhanced 的 `util/crypto.js`）。
 //!
-//! All randomness is injectable (`*_with`) so outputs can be cross-checked byte-for-byte against the
-//! Node implementation (see `scripts/gen_vectors.js` and `tests/crypto_vectors.rs`).
+//! 所有随机量都可以注入（`*_with` 系列函数），这样输出能和 Node 实现逐字节对拍
+//! （见 `scripts/gen_vectors.js` 和 `tests/crypto_vectors.rs`）。
 
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyInit, KeyIvInit};
 use aes_gcm::{aead::Aead, Aes128Gcm, Nonce};
@@ -50,7 +50,7 @@ fn xeapi_static_key() -> Vec<u8> {
     hex::decode(XEAPI_STATIC_KEY_HEX).expect("static key hex")
 }
 
-// ---------------------------------------------------------------- AES helpers
+// ---------------------------------------------------------------- AES 辅助函数
 
 pub fn aes_cbc_encrypt_b64(plain: &[u8], key: &[u8; 16], iv: &[u8; 16]) -> String {
     let ct = cbc::Encryptor::<aes::Aes128>::new(key.into(), iv.into())
@@ -92,7 +92,7 @@ pub struct WeapiOut {
     pub enc_sec_key: String,
 }
 
-/// Raw (no padding) RSA with the NetEase public key, output zero-padded hex (matches node-forge `NONE`).
+/// 用网易云公钥做无填充的原始 RSA，输出左侧补零的十六进制（与 node-forge 的 `NONE` 一致）。
 fn rsa_encrypt_raw_hex(msg: &[u8]) -> String {
     let n = BigUint::parse_bytes(RSA_N_HEX.as_bytes(), 16).expect("rsa n");
     let m = BigUint::from_bytes_be(msg);
@@ -131,7 +131,7 @@ pub fn weapi(json_text: &str) -> WeapiOut {
 
 // ---------------------------------------------------------------- eapi
 
-/// Returns upper-case hex `params`.
+/// 返回大写十六进制的 `params`。
 pub fn eapi(url: &str, json_text: &str) -> String {
     let digest = md5_hex(&format!("nobody{url}use{json_text}md5forencrypt"));
     let data = format!("{url}-36cd479b6b5-{json_text}-36cd479b6b5-{digest}");
@@ -144,7 +144,7 @@ fn gunzip(b: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Decrypt an eapi response body (raw bytes). `aeapi` = server gzip-compressed the plaintext.
+/// 解密 eapi 响应体（原始字节）。`aeapi` 表示服务器先对明文做了 gzip 压缩。
 pub fn eapi_res_decrypt(body: &[u8], aeapi: bool) -> Result<serde_json::Value> {
     let dec = aes_ecb_decrypt(EAPI_KEY, body)?;
     let plain = if aeapi { gunzip(&dec)? } else { dec };
@@ -155,17 +155,17 @@ pub fn eapi_res_decrypt(body: &[u8], aeapi: bool) -> Result<serde_json::Value> {
 
 #[derive(Clone, Debug, Default)]
 pub struct XeapiPublicKey {
-    pub public_key_b64: String, // `publicKey` field (raw 32-byte X25519, base64)
+    pub public_key_b64: String, // `publicKey` 字段（原始 32 字节 X25519 公钥，base64）
     pub version: String,
     pub sk: String,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct XeapiOptions {
-    pub method: Option<String>,       // default POST
-    pub content_type: Option<String>, // default form-urlencoded
-    pub os: String,                   // default "android"
-    pub session_key: Option<Vec<u8>>, // x-encr-sskey from a previous response
+    pub method: Option<String>,       // 默认 POST
+    pub content_type: Option<String>, // 默认 form-urlencoded
+    pub os: String,                   // 默认 "android"
+    pub session_key: Option<Vec<u8>>, // 上一次响应里的 x-encr-sskey
     pub session_id: String,           // x-encr-ssid
 }
 
@@ -194,7 +194,7 @@ impl XeapiRand {
 }
 
 pub struct XeapiOut {
-    pub c: String, // base64url (no padding)
+    pub c: String, // base64url（不带填充）
     pub s: String, // base64
     pub r: String, // base64
 }
@@ -259,7 +259,7 @@ fn xeapi_encrypt_s(
     let aes_key = derive_x25519_aes_key(shared.as_bytes(), eph_pub.as_bytes());
     let plaintext = format!("{}|{}|{}", STANDARD.encode(dynamic_key), os, pk.sk);
     let cipher = Aes128Gcm::new(&aes_key.into());
-    // aes-gcm returns ciphertext || tag, same layout node produces (cipher + authTag)
+    // aes-gcm 返回「密文 || tag」，与 Node 产出的布局（cipher + authTag）一致
     let enc = cipher
         .encrypt(Nonce::from_slice(&rnd.gcm_iv), plaintext.as_bytes())
         .map_err(|_| CryptoError::Decrypt)?;
@@ -274,8 +274,8 @@ fn json_str(s: &str) -> String {
     serde_json::to_string(s).expect("string json")
 }
 
-/// Build the inner xeapi plaintext JSON. Field order mirrors the JS object insertion order
-/// (see comment below) so ciphertexts are byte-identical to Node's.
+/// 构造 xeapi 内层明文 JSON。字段顺序与 JS 对象的插入顺序一致（见下方注释），
+/// 这样密文才能和 Node 的结果逐字节相同。
 pub fn build_xeapi_plaintext(uri: &str, body: &[(String, String)], o: &XeapiOptions) -> String {
     let content_type = o
         .content_type
@@ -294,8 +294,8 @@ pub fn build_xeapi_plaintext(uri: &str, body: &[(String, String)], o: &XeapiOpti
     if method != "POST" {
         parts.push(format!("\"method\":{}", json_str(&method)));
     }
-    // JS insertion order: queryString is set early only when the uri already has a query string;
-    // otherwise it is assigned after `content` (`fields.queryString = 'e_r=true'`).
+    // JS 的插入顺序：只有 uri 本身带 query 时 queryString 才会先赋值；
+    // 否则它是在 `content` 之后才赋值（`fields.queryString = 'e_r=true'`）。
     let query = uri
         .split_once('?')
         .map(|(_, q)| q.to_string())
@@ -375,7 +375,7 @@ pub fn xeapi_res_decrypt(body: &[u8]) -> Result<serde_json::Value> {
     Ok(serde_json::from_slice(&plain)?)
 }
 
-/// Decrypt `/api/bsr/sk/get` `encryptedData` into the public key state `{publicKey, version, sk, ...}`.
+/// 把 `/api/bsr/sk/get` 返回的 `encryptedData` 解密成公钥状态 `{publicKey, version, sk, ...}`。
 pub fn xeapi_decrypt_public_key(encrypted_b64: &str) -> Result<serde_json::Value> {
     let raw = STANDARD.decode(encrypted_b64)?;
     let dec = aes_ecb_decrypt(&xeapi_static_key(), &raw)?;

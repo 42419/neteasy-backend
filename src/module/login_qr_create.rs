@@ -1,10 +1,10 @@
-//! Port of api-enhanced `module/login_qr_create.js`.
+//! 移植自 api-enhanced 的 `module/login_qr_create.js`。
 use crate::util::index::{generate_chain_id, Query};
 use crate::util::request::{Answer, AnswerResult, Request};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::json;
 
-/// `QRCode.toDataURL(url)`: PNG data URL.
+/// 对应 `QRCode.toDataURL(url)`：生成 PNG 的 data URL。
 fn qr_data_url(text: &str) -> String {
     let Ok(code) = qrcode::QrCode::new(text.as_bytes()) else { return String::new() };
     let w = code.width();

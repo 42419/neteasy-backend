@@ -1,13 +1,13 @@
-//! Android JNI entry (cdylib `libneteasy_backend.so`).
+//! Android 的 JNI 入口（cdylib：`libneteasy_backend.so`）。
 //!
-//! Kotlin side:
+//! Kotlin 端写法：
 //! ```kotlin
 //! object RustBackend {
 //!     init { System.loadLibrary("neteasy_backend") }
 //!     @JvmStatic external fun start(dataDir: String, port: Int): Boolean
 //! }
 //! ```
-//! The class must be `top.yunov.neteasy.RustBackend` (the JNI symbol name encodes it).
+//! 类名必须是 `top.yunov.neteasy.RustBackend`（JNI 符号名里编码了类名）。
 
 use crate::{serve_ncm_api, ServeOptions};
 use jni::objects::{JClass, JString};
@@ -17,8 +17,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static STARTED: AtomicBool = AtomicBool::new(false);
 
-/// Starts the HTTP backend on a background thread and returns immediately.
-/// Returns `true` when this call started it, `false` if it was already running or the arguments were invalid.
+/// 在后台线程启动 HTTP 后端并立即返回。
+/// 本次调用成功启动返回 `true`；已经在运行或参数无效时返回 `false`。
 #[no_mangle]
 pub extern "system" fn Java_top_yunov_neteasy_RustBackend_start(
     mut env: JNIEnv,

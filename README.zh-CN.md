@@ -59,7 +59,7 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 | `/recommend/songs`、`/personalized`、`/toplist`、`/banner`、`/album` | weapi / eapi | 已移植，国内网络实测通过 |
 | `/likelist`、`/like` | eapi / weapi | 已移植，国内网络实测通过 |
 | `/comment/new`、`/comment/like` | eapi / weapi | 已移植，国内网络实测通过 |
-| `/comment/add` | xeapi + checkToken v3 | 待做（需要反作弊 token） |
+| `/comment/add` | xeapi + checkToken v3 | 不做（发评论不在范围内，只做获取评论） |
 
 另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
 
@@ -71,7 +71,7 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
   `--data-dir`，下次启动直接复用，热启动即刻可用（首次冷启动期间的请求会等待初始化，最长 20 秒）。
 - `register_anonimous` 沿用已保存的设备 ID，不再每次调用都重新生成（xeapi 的 `sk` 与设备 ID 绑定）。
 - 没有 2 分钟的 GET 响应缓存、没有 CORS 中间件、没有静态页面（只在本机回环地址给 App 用）。
-- 未移植：`linuxapi`、`neapi`、`checkToken`（反作弊 v2/v3，`/comment/add` 需要）、`unblock`、代理、随机国内 IP。
+- 未移植：`linuxapi`、`neapi`、`checkToken`（反作弊 v2/v3，只有发评论才需要，不在范围内）、`unblock`、代理、随机国内 IP。
 - `/login/qr/check` 在上游失败时表现为 404（上游 catch 里引用了作用域外变量，会抛 ReferenceError）。
 
 ## CI

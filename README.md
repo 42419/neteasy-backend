@@ -46,7 +46,7 @@ Endpoints the app calls (from `ApiClient` usage), with upstream crypto mode:
 | `/recommend/songs`, `/personalized`, `/toplist`, `/banner`, `/album` | weapi / eapi | ported, verified live on a China network |
 | `/likelist`, `/like` | eapi / weapi | ported, verified live on a China network |
 | `/comment/new`, `/comment/like` | eapi / weapi | ported, verified live on a China network |
-| `/comment/add` | xeapi + checkToken v3 | todo (needs anti-cheat token) |
+| `/comment/add` | xeapi + checkToken v3 | will not be implemented (posting comments is out of scope) |
 
 Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
 
@@ -60,7 +60,7 @@ Not ported (unused by the app): everything else in upstream `module/`.
 - `register_anonimous` keeps the stored device id instead of generating a new one on every call
   (the xeapi `sk` is bound to the device id).
 - No 2-minute GET response cache, no CORS middleware, no static pages (loopback-only server for the app).
-- Not ported: `linuxapi`, `neapi`, `checkToken` (anti-cheat v2/v3, needed by `/comment/add`), `unblock`, proxies, random CN IP.
+- Not ported: `linuxapi`, `neapi`, `checkToken` (anti-cheat v2/v3, only needed for posting comments, which is out of scope), `unblock`, proxies, random CN IP.
 - `/login/qr/check` on upstream failure surfaces as 404 (upstream's catch block throws a ReferenceError).
 
 ## CI
