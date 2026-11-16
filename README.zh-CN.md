@@ -51,19 +51,36 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 
 | 路由 | 加密方式 | 状态 |
 |------|----------|------|
-| `/login/qr/key`、`/login/qr/create`、`/login/qr/check`、`/login/status` | eapi / 本地生成 / eapi / weapi | 待做 |
-| `/song/url/v1` | xeapi | 待做 |
-| `/song/detail`、`/lyric`、`/lyric/new` | weapi / eapi | 待做 |
-| `/search`、`/search/suggest`、`/search/hot` | eapi / weapi / eapi | 待做 |
-| `/playlist/detail`、`/playlist/track/all`、`/user/playlist`、`/user/detail` | eapi / weapi | 待做 |
-| `/recommend/songs`、`/personalized`、`/toplist`、`/banner`、`/album` | weapi / eapi | 待做 |
-| `/likelist`、`/like` | eapi / weapi | 待做 |
-| `/comment/new`、`/comment/like` | eapi / weapi | 待做 |
+| `/login/qr/key`、`/login/qr/create`、`/login/qr/check`、`/login/status` | eapi / 本地生成 / eapi / weapi | 已移植，离线测试通过（待联网验证） |
+| `/song/url/v1` | xeapi | 已移植，离线测试通过（待联网验证） |
+| `/song/detail`、`/lyric`、`/lyric/new` | weapi / eapi | 已移植，离线测试通过（待联网验证） |
+| `/search`、`/search/suggest`、`/search/hot` | eapi / weapi / eapi | 已移植，离线测试通过（待联网验证） |
+| `/playlist/detail`、`/playlist/track/all`、`/user/playlist`、`/user/detail` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
+| `/recommend/songs`、`/personalized`、`/toplist`、`/banner`、`/album` | weapi / eapi | 已移植，离线测试通过（待联网验证） |
+| `/likelist`、`/like` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
+| `/comment/new`、`/comment/like` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
 | `/comment/add` | xeapi + checkToken v3 | 待做（需要反作弊 token） |
 
-已完成：加密核心（`util/crypto.rs`）。
+另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
 
 未移植（App 没用到）：上游 `module/` 里的其余全部接口。
+
+## 与上游的差异
+
+- **启动**：先绑定端口，xeapi 公钥和游客 token 在后台初始化。设备 ID、xeapi 公钥、游客 token 缓存在
+  `--data-dir`，下次启动直接复用，热启动即刻可用（首次冷启动期间的请求会等待初始化，最长 20 秒）。
+- `register_anonimous` 沿用已保存的设备 ID，不再每次调用都重新生成（xeapi 的 `sk` 与设备 ID 绑定）。
+- 没有 2 分钟的 GET 响应缓存、没有 CORS 中间件、没有静态页面（只在本机回环地址给 App 用）。
+- 未移植：`linuxapi`、`neapi`、`checkToken`（反作弊 v2/v3，`/comment/add` 需要）、`unblock`、代理、随机国内 IP。
+- `/login/qr/check` 在上游失败时表现为 404（上游 catch 里引用了作用域外变量，会抛 ReferenceError）。
+
+## CI
+
+- `ci.yml`：fmt、clippy（`-D warnings`）、测试；另有 `android` 任务，交叉编译 `arm64-v8a` 的 `cdylib` 并报告体积。
+- `upstream-check.yml`（每周）：用最新上游 `crypto.js` 重新生成对拍向量并跑加密测试，上游改了加密就会失败。
+- `smoke.yml`（手动）：对真实网易云服务器跑一遍各接口，结果以 annotation 形式输出。
+
+本地运行：`cargo run -- --port 19800 --data-dir ./data`。
 
 ## 许可
 

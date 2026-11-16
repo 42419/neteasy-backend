@@ -68,12 +68,16 @@ pub fn aes_ecb_encrypt(key: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn aes_ecb_decrypt(key: &[u8], cipher: &[u8]) -> Result<Vec<u8>> {
-    let r = match key.len() {
-        16 => ecb::Decryptor::<aes::Aes128>::new(key.into()).decrypt_padded_vec_mut::<Pkcs7>(cipher),
-        24 => ecb::Decryptor::<aes::Aes192>::new(key.into()).decrypt_padded_vec_mut::<Pkcs7>(cipher),
-        32 => ecb::Decryptor::<aes::Aes256>::new(key.into()).decrypt_padded_vec_mut::<Pkcs7>(cipher),
-        n => return Err(CryptoError::KeyLen(n)),
-    };
+    let r =
+        match key.len() {
+            16 => ecb::Decryptor::<aes::Aes128>::new(key.into())
+                .decrypt_padded_vec_mut::<Pkcs7>(cipher),
+            24 => ecb::Decryptor::<aes::Aes192>::new(key.into())
+                .decrypt_padded_vec_mut::<Pkcs7>(cipher),
+            32 => ecb::Decryptor::<aes::Aes256>::new(key.into())
+                .decrypt_padded_vec_mut::<Pkcs7>(cipher),
+            n => return Err(CryptoError::KeyLen(n)),
+        };
     r.map_err(|_| CryptoError::Decrypt)
 }
 
@@ -115,7 +119,10 @@ pub fn weapi_with(json_text: &str, secret: &[u8; 16]) -> WeapiOut {
     let params = aes_cbc_encrypt_b64(inner.as_bytes(), secret, IV);
     let mut rev = *secret;
     rev.reverse();
-    WeapiOut { params, enc_sec_key: rsa_encrypt_raw_hex(&rev) }
+    WeapiOut {
+        params,
+        enc_sec_key: rsa_encrypt_raw_hex(&rev),
+    }
 }
 
 pub fn weapi(json_text: &str) -> WeapiOut {
@@ -172,7 +179,12 @@ pub struct XeapiRand {
 impl XeapiRand {
     pub fn fresh() -> Self {
         let mut r = rand::thread_rng();
-        let mut x = XeapiRand { dynamic_key: [0; 16], mid_random: [0; 16], eph_secret: [0; 32], gcm_iv: [0; 12] };
+        let mut x = XeapiRand {
+            dynamic_key: [0; 16],
+            mid_random: [0; 16],
+            eph_secret: [0; 32],
+            gcm_iv: [0; 12],
+        };
         r.fill_bytes(&mut x.dynamic_key);
         r.fill_bytes(&mut x.mid_random);
         r.fill_bytes(&mut x.eph_secret);
@@ -194,12 +206,23 @@ fn hmac(key: &[u8], data: &[u8]) -> Vec<u8> {
 }
 
 pub fn xeapi_sign(timestamp: &str, nonce: &str) -> String {
-    STANDARD.encode(hmac(XEAPI_SIGN_KEY.as_bytes(), format!("{timestamp}{nonce}").as_bytes()))
+    STANDARD.encode(hmac(
+        XEAPI_SIGN_KEY.as_bytes(),
+        format!("{timestamp}{nonce}").as_bytes(),
+    ))
 }
 
 fn xeapi_mid_transform(ct: &[u8], random: &[u8; 16]) -> Vec<u8> {
-    let xored: Vec<u8> = ct.iter().enumerate().map(|(i, b)| b ^ random[i & 0x0f]).collect();
-    let rot = if xored.is_empty() { 0 } else { (random[0] as usize & 0x0f) % xored.len() };
+    let xored: Vec<u8> = ct
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ random[i & 0x0f])
+        .collect();
+    let rot = if xored.is_empty() {
+        0
+    } else {
+        (random[0] as usize & 0x0f) % xored.len()
+    };
     let mut out = Vec::with_capacity(16 + xored.len());
     out.extend_from_slice(random);
     out.extend_from_slice(&xored[rot..]);
@@ -218,7 +241,12 @@ fn derive_x25519_aes_key(shared: &[u8], eph_pub: &[u8]) -> [u8; 16] {
     k
 }
 
-fn xeapi_encrypt_s(dynamic_key: &[u8], pk: &XeapiPublicKey, os: &str, rnd: &XeapiRand) -> Result<Vec<u8>> {
+fn xeapi_encrypt_s(
+    dynamic_key: &[u8],
+    pk: &XeapiPublicKey,
+    os: &str,
+    rnd: &XeapiRand,
+) -> Result<Vec<u8>> {
     let peer_raw = STANDARD.decode(&pk.public_key_b64)?;
     let mut peer = [0u8; 32];
     if peer_raw.len() != 32 {
@@ -258,20 +286,34 @@ pub fn build_xeapi_plaintext(uri: &str, body: &[(String, String)], o: &XeapiOpti
     if media != "application/x-www-form-urlencoded" {
         parts.push(format!("\"contentType\":{}", json_str(&content_type)));
     }
-    let method = o.method.clone().unwrap_or_else(|| "POST".into()).to_uppercase();
+    let method = o
+        .method
+        .clone()
+        .unwrap_or_else(|| "POST".into())
+        .to_uppercase();
     if method != "POST" {
         parts.push(format!("\"method\":{}", json_str(&method)));
     }
     // JS insertion order: queryString is set early only when the uri already has a query string;
     // otherwise it is assigned after `content` (`fields.queryString = 'e_r=true'`).
-    let query = uri.split_once('?').map(|(_, q)| q.to_string()).unwrap_or_default();
+    let query = uri
+        .split_once('?')
+        .map(|(_, q)| q.to_string())
+        .unwrap_or_default();
     let has_query = !query.is_empty();
-    let query = if has_query { format!("{query}&e_r=true") } else { "e_r=true".to_string() };
+    let query = if has_query {
+        format!("{query}&e_r=true")
+    } else {
+        "e_r=true".to_string()
+    };
     if has_query {
         parts.push(format!("\"queryString\":{}", json_str(&query)));
     }
-    let pairs: Vec<(&str, &str)> =
-        body.iter().filter(|(k, _)| k != "e_r").map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let pairs: Vec<(&str, &str)> = body
+        .iter()
+        .filter(|(k, _)| k != "e_r")
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let encoded = serde_urlencoded::to_string(&pairs).unwrap_or_default();
     if !encoded.is_empty() {
         parts.push(format!("\"content\":{}", json_str(&encoded)));
@@ -290,24 +332,46 @@ pub fn xeapi_with(
     rnd: &XeapiRand,
 ) -> Result<XeapiOut> {
     let session_key = o.session_key.as_ref().filter(|k| !k.is_empty());
-    let dynamic_key: Vec<u8> = session_key.cloned().unwrap_or_else(|| rnd.dynamic_key.to_vec());
+    let dynamic_key: Vec<u8> = session_key
+        .cloned()
+        .unwrap_or_else(|| rnd.dynamic_key.to_vec());
     let plaintext = build_xeapi_plaintext(uri, body, o);
     let inner = aes_ecb_encrypt(&xeapi_static_key(), plaintext.as_bytes())?;
     let c = aes_ecb_encrypt(&dynamic_key, &xeapi_mid_transform(&inner, &rnd.mid_random))?;
     let os = if o.os.is_empty() { "android" } else { &o.os };
     let s = xeapi_encrypt_s(&dynamic_key, pk, os, rnd)?;
-    let sid = if session_key.is_some() { o.session_id.as_str() } else { "" };
-    let r = aes_ecb_encrypt(&xeapi_static_key(), format!("{}|{}", pk.version, sid).as_bytes())?;
-    Ok(XeapiOut { c: URL_SAFE_NO_PAD.encode(c), s: STANDARD.encode(s), r: STANDARD.encode(r) })
+    let sid = if session_key.is_some() {
+        o.session_id.as_str()
+    } else {
+        ""
+    };
+    let r = aes_ecb_encrypt(
+        &xeapi_static_key(),
+        format!("{}|{}", pk.version, sid).as_bytes(),
+    )?;
+    Ok(XeapiOut {
+        c: URL_SAFE_NO_PAD.encode(c),
+        s: STANDARD.encode(s),
+        r: STANDARD.encode(r),
+    })
 }
 
-pub fn xeapi(uri: &str, body: &[(String, String)], o: &XeapiOptions, pk: &XeapiPublicKey) -> Result<XeapiOut> {
+pub fn xeapi(
+    uri: &str,
+    body: &[(String, String)],
+    o: &XeapiOptions,
+    pk: &XeapiPublicKey,
+) -> Result<XeapiOut> {
     xeapi_with(uri, body, o, pk, &XeapiRand::fresh())
 }
 
 pub fn xeapi_res_decrypt(body: &[u8]) -> Result<serde_json::Value> {
     let dec = aes_ecb_decrypt(EAPI_KEY, body)?;
-    let plain = if dec.len() > 1 && dec[0] == 0x1f && dec[1] == 0x8b { gunzip(&dec)? } else { dec };
+    let plain = if dec.len() > 1 && dec[0] == 0x1f && dec[1] == 0x8b {
+        gunzip(&dec)?
+    } else {
+        dec
+    };
     Ok(serde_json::from_slice(&plain)?)
 }
 

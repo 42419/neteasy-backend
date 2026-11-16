@@ -1,0 +1,41 @@
+//! Mirrors api-enhanced `generateConfig.js`: bootstrap the xeapi public key and the anonymous (guest)
+//! token. Runs in the background after the server is listening; requests made before it finishes
+//! wait (bounded) instead of failing, and a cached state from the previous run is usable immediately.
+
+use crate::module::register_anonimous;
+use crate::util::index::{cookie_to_json, generate_device_id, Query};
+use crate::util::request::Request;
+use crate::util::xeapi_key::get_xeapi_public_key;
+
+pub async fn generate_config(request: &Request) {
+    let req = request.for_bootstrap();
+    if req.device_id().is_empty() {
+        req.set_device_id(&generate_device_id());
+    }
+    let device_id = req.device_id();
+
+    // 1) xeapi public key (the `sk` is bound to the device id)
+    match get_xeapi_public_key(&req, req.xeapi_public_key().as_ref(), &device_id).await {
+        Ok(key) => req.set_xeapi_public_key(&key, &device_id),
+        Err(e) => log::warn!("[generate_config] xeapi public key: {e}"),
+    }
+
+    // 2) anonymous token (MUSIC_A)
+    match register_anonimous::handle(Query::default(), &req).await {
+        Ok(answer) => {
+            let cookie = answer
+                .body
+                .get("cookie")
+                .and_then(|c| c.as_str())
+                .unwrap_or("");
+            let parsed = cookie_to_json(&cookie.replace(';', "; "));
+            if let Some(token) = parsed.get("MUSIC_A").filter(|t| !t.is_empty()) {
+                req.set_anonymous_token(token);
+            } else {
+                log::warn!("[generate_config] anonymous response had no MUSIC_A");
+            }
+        }
+        Err(e) => log::warn!("[generate_config] anonymous register failed: {}", e.body),
+    }
+    req.mark_ready();
+}

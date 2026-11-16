@@ -38,17 +38,38 @@ Endpoints the app calls (from `ApiClient` usage), with upstream crypto mode:
 
 | route | crypto | status |
 |-------|--------|--------|
-| `/login/qr/key`, `/login/qr/create`, `/login/qr/check`, `/login/status` | eapi / local / eapi / weapi | todo |
-| `/song/url/v1` | xeapi | todo |
-| `/song/detail`, `/lyric`, `/lyric/new` | weapi / eapi | todo |
-| `/search`, `/search/suggest`, `/search/hot` | eapi / weapi / eapi | todo |
-| `/playlist/detail`, `/playlist/track/all`, `/user/playlist`, `/user/detail` | eapi / weapi | todo |
-| `/recommend/songs`, `/personalized`, `/toplist`, `/banner`, `/album` | weapi / eapi | todo |
-| `/likelist`, `/like` | eapi / weapi | todo |
-| `/comment/new`, `/comment/like` | eapi / weapi | todo |
+| `/login/qr/key`, `/login/qr/create`, `/login/qr/check`, `/login/status` | eapi / local / eapi / weapi | ported, offline-tested (live check pending) |
+| `/song/url/v1` | xeapi | ported, offline-tested (live check pending) |
+| `/song/detail`, `/lyric`, `/lyric/new` | weapi / eapi | ported, offline-tested (live check pending) |
+| `/search`, `/search/suggest`, `/search/hot` | eapi / weapi / eapi | ported, offline-tested (live check pending) |
+| `/playlist/detail`, `/playlist/track/all`, `/user/playlist`, `/user/detail` | eapi / weapi | ported, offline-tested (live check pending) |
+| `/recommend/songs`, `/personalized`, `/toplist`, `/banner`, `/album` | weapi / eapi | ported, offline-tested (live check pending) |
+| `/likelist`, `/like` | eapi / weapi | ported, offline-tested (live check pending) |
+| `/comment/new`, `/comment/like` | eapi / weapi | ported, offline-tested (live check pending) |
 | `/comment/add` | xeapi + checkToken v3 | todo (needs anti-cheat token) |
 
+Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
+
 Not ported (unused by the app): everything else in upstream `module/`.
+
+## Deviations from upstream
+
+- **Startup**: the server binds the port first; xeapi public key / guest token are bootstrapped in the
+  background. Device id, xeapi key and guest token are cached in `--data-dir` and reused on the next start,
+  so a warm start is ready immediately (requests during a cold first-run bootstrap wait, bounded to 20 s).
+- `register_anonimous` keeps the stored device id instead of generating a new one on every call
+  (the xeapi `sk` is bound to the device id).
+- No 2-minute GET response cache, no CORS middleware, no static pages (loopback-only server for the app).
+- Not ported: `linuxapi`, `neapi`, `checkToken` (anti-cheat v2/v3, needed by `/comment/add`), `unblock`, proxies, random CN IP.
+- `/login/qr/check` on upstream failure surfaces as 404 (upstream's catch block throws a ReferenceError).
+
+## CI
+
+- `ci.yml`: fmt, clippy (`-D warnings`), tests; plus an `android` job that cross-compiles the `cdylib` for `arm64-v8a` and reports its size.
+- `upstream-check.yml` (weekly): regenerates vectors from the latest upstream `crypto.js` and re-runs the crypto tests.
+- `smoke.yml` (manual): runs the server against the real NetEase servers and reports each endpoint's result as annotations.
+
+Run locally: `cargo run -- --port 19800 --data-dir ./data`.
 
 ## License
 
