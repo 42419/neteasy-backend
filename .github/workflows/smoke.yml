@@ -1,7 +1,8 @@
 name: Live smoke test
 
 # Manual: builds the server, lets it bootstrap (xeapi key + guest token) and calls the endpoints the
-# app depends on against the real NetEase servers. Results are emitted as annotations.
+# app depends on against the real NetEase servers. Results are condensed into a few annotations
+# (GitHub shows at most 10 notices per step).
 on:
   workflow_dispatch:
 
@@ -17,27 +18,26 @@ jobs:
         run: |
           ./target/release/neteasy-backend --port 19800 --data-dir "$RUNNER_TEMP/data" > server.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:19800/ >/dev/null && break; sleep 1; done
-          sleep 10
-          call() {
-            name=$1
-            out=$(curl -s -m 30 -w ' [http %{http_code}]' "http://127.0.0.1:19800$2" | tr '\n\r%' '   ' | head -c 400)
-            echo "$name -> $out"
-            echo "::notice title=$name::$out"
-          }
-          call register_anonimous "/register/anonimous"
-          call login_qr_key "/login/qr/key?timestamp=$(date +%s000)"
-          call song_detail "/song/detail?ids=347230"
-          call song_url_v1 "/song/url/v1?id=347230&level=standard"
-          call lyric_new "/lyric/new?id=347230"
-          call search "/search?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&limit=2"
-          call search_suggest "/search/suggest?keywords=%E5%91%A8&type=mobile"
-          call search_hot "/search/hot"
-          call playlist_detail "/playlist/detail?id=3778678"
-          call toplist "/toplist"
-          call banner "/banner?type=1"
-          call personalized "/personalized?limit=2"
-          n=0
-          while IFS= read -r line; do
-            n=$((n+1))
-            echo "::notice title=log$n::$(printf '%s' "$line" | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 380)"
-          done < <(tail -n 12 server.log)
+          sleep 12
+          r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
+          s() { printf '%s' "$1" | jq -c "$2" 2>/dev/null | head -c 260 || printf '%s' "$1" | head -c 200; }
+          {
+            echo "anonimous: $(r /register/anonimous | head -c 300)"
+            echo "login_status: $(s "$(r /login/status)" '{code, acct: (.data.account.id // null), anon: (.data.account.anonimousUser // null)}')"
+            echo "song_url(3 ids): $(s "$(r '/song/url/v1?id=347230,33894312,1969519579&level=standard')" '[.data[]|{id,code,br,hasUrl:(.url!=null)}]')"
+            echo "song_url(exhigh): $(s "$(r '/song/url/v1?id=33894312&level=exhigh')" '[.data[]|{id,code,br,hasUrl:(.url!=null),level}]')"
+            echo "detail: $(s "$(r '/song/detail?ids=347230,33894312')" '[.songs[]|.name]')"
+            echo "search: $(s "$(r '/search?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&limit=3')" '[.result.songs[]|.name]')"
+            echo "lyric_new: $(s "$(r '/lyric/new?id=347230')" '{code, hasYrc:(.yrc.lyric!=null), hasLrc:(.lrc.lyric!=null)}')"
+            echo "playlist_track_all: $(s "$(r '/playlist/track/all?id=3778678&limit=3')" '[.songs[]|.name]')"
+            echo "recommend_songs(guest): $(r /recommend/songs | head -c 160)"
+            echo "banner: $(s "$(r '/banner?type=1')" '{code, n:(.banners|length)}')"
+            echo "personalized: $(s "$(r '/personalized?limit=2')" '{code, n:(.result|length)}')"
+            echo "album: $(s "$(r '/album?id=34209')" '{code, name:.album.name}')"
+            echo "comment_new: $(s "$(r '/comment/new?type=0&id=347230&pageSize=2')" '{code, total:.data.totalCount}')"
+            echo "likelist(guest): $(r '/likelist?uid=1' | head -c 160)"
+          } > results.txt
+          cat results.txt
+          echo "::notice title=results-1::$(sed -n 1,5p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
+          echo "::notice title=results-2::$(sed -n 6,14p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
+          echo "::notice title=server-log::$(tail -n 14 server.log | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 3500)"
