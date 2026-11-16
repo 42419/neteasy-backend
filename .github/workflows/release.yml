@@ -1,6 +1,7 @@
 name: Release
 
-# 打 `vX.Y.Z` 标签后：构建所有 ABI 的 jniLibs，并把压缩包附加到 GitHub Release。
+# 打 `vX.Y.Z` 标签后：构建三个 ABI 的动态库，并把 .so 文件和 SHA256SUMS 直接上传到 GitHub Release（不打 zip）。
+# 文件名里带 ABI：libneteasy_backend-arm64-v8a.so / -armeabi-v7a.so / -x86_64.so
 on:
   push:
     tags: ["v*"]
@@ -21,7 +22,13 @@ jobs:
         with:
           tool: cargo-ndk
       - run: cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o jniLibs build --release --lib
-      - run: cd jniLibs && zip -r ../neteasy-backend-jniLibs.zip .
+      - name: 整理发布文件
+        run: |
+          mkdir dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "jniLibs/$abi/libneteasy_backend.so" "dist/libneteasy_backend-$abi.so"
+          done
+          (cd dist && sha256sum *.so > SHA256SUMS && cat SHA256SUMS)
       - uses: softprops/action-gh-release@v2
         with:
-          files: neteasy-backend-jniLibs.zip
+          files: dist/*

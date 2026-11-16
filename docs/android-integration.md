@@ -8,7 +8,9 @@ HTTP API on `127.0.0.1:19800`, so `ApiClient` and the OkHttp cookie jar keep wor
 ## 1. Get the libraries
 
 - CI: open the latest run of **CI** → artifact `jniLibs` (contains `arm64-v8a/`, `armeabi-v7a/`, `x86_64/`), or
-- Release: tag `vX.Y.Z` → `neteasy-backend-jniLibs.zip` is attached to the GitHub release, or
+- Release: each tagged release has three files attached directly (no zip): `libneteasy_backend-arm64-v8a.so`,
+  `libneteasy_backend-armeabi-v7a.so`, `libneteasy_backend-x86_64.so`, plus `SHA256SUMS`. Download them and save each as
+  `app/src/main/jniLibs/<abi>/libneteasy_backend.so` (drop the `-<abi>` suffix from the file name), or
 - Local: `cargo install cargo-ndk && cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o jniLibs build --release --lib`
 
 Copy the ABI folders into `app/src/main/jniLibs/`.
@@ -61,7 +63,9 @@ HTTP 接口，所以 `ApiClient` 和 OkHttp 的 CookieJar 都不用改。
 ### 1. 拿到动态库
 
 - CI：打开最近一次 **CI** 运行，下载 artifact `jniLibs`（含 `arm64-v8a/`、`armeabi-v7a/`、`x86_64/`）；或
-- Release：打 tag `vX.Y.Z`，GitHub release 会附带 `neteasy-backend-jniLibs.zip`；或
+- Release：每个 tag 的 Release 里直接附带三个文件（不是 zip）：`libneteasy_backend-arm64-v8a.so`、
+  `libneteasy_backend-armeabi-v7a.so`、`libneteasy_backend-x86_64.so`，外加 `SHA256SUMS`。下载后分别保存为
+  `app/src/main/jniLibs/<abi>/libneteasy_backend.so`（文件名去掉 `-<abi>` 后缀）；或
 - 本地：`cargo install cargo-ndk && cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o jniLibs build --release --lib`
 
 把各 ABI 目录拷到 `app/src/main/jniLibs/`。
