@@ -38,14 +38,14 @@ Endpoints the app calls (from `ApiClient` usage), with upstream crypto mode:
 
 | route | crypto | status |
 |-------|--------|--------|
-| `/login/qr/key`, `/login/qr/create`, `/login/qr/check`, `/login/status` | eapi / local / eapi / weapi | ported, offline-tested (live check pending) |
-| `/song/url/v1` | xeapi | ported, offline-tested (live check pending) |
-| `/song/detail`, `/lyric`, `/lyric/new` | weapi / eapi | ported, offline-tested (live check pending) |
-| `/search`, `/search/suggest`, `/search/hot` | eapi / weapi / eapi | ported, offline-tested (live check pending) |
-| `/playlist/detail`, `/playlist/track/all`, `/user/playlist`, `/user/detail` | eapi / weapi | ported, offline-tested (live check pending) |
-| `/recommend/songs`, `/personalized`, `/toplist`, `/banner`, `/album` | weapi / eapi | ported, offline-tested (live check pending) |
-| `/likelist`, `/like` | eapi / weapi | ported, offline-tested (live check pending) |
-| `/comment/new`, `/comment/like` | eapi / weapi | ported, offline-tested (live check pending) |
+| `/login/qr/key`, `/login/qr/create`, `/login/qr/check`, `/login/status` | eapi / local / eapi / weapi | ported, verified live on a China network |
+| `/song/url/v1` | xeapi | ported, verified live on a China network |
+| `/song/detail`, `/lyric`, `/lyric/new` | weapi / eapi | ported, verified live on a China network |
+| `/search`, `/search/suggest`, `/search/hot` | eapi / weapi / eapi | ported, verified live on a China network |
+| `/playlist/detail`, `/playlist/track/all`, `/user/playlist`, `/user/detail` | eapi / weapi | ported, verified live on a China network |
+| `/recommend/songs`, `/personalized`, `/toplist`, `/banner`, `/album` | weapi / eapi | ported, verified live on a China network |
+| `/likelist`, `/like` | eapi / weapi | ported, verified live on a China network |
+| `/comment/new`, `/comment/like` | eapi / weapi | ported, verified live on a China network |
 | `/comment/add` | xeapi + checkToken v3 | todo (needs anti-cheat token) |
 
 Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
@@ -68,6 +68,9 @@ Not ported (unused by the app): everything else in upstream `module/`.
 - `ci.yml`: fmt, clippy (`-D warnings`), tests; plus an `android` job that cross-compiles the `cdylib` for `arm64-v8a` and reports its size.
 - `upstream-check.yml` (weekly): regenerates vectors from the latest upstream `crypto.js` and re-runs the crypto tests.
 - `smoke.yml` (manual): runs the server against the real NetEase servers and reports each endpoint's result as annotations.
+
+Note: GitHub runners are outside China, so live results there are region-affected (e.g. `/song/url/v1` returns 404
+without playable URLs even for the upstream Node server's cookie-less guest). Use a China network for real playback checks.
 
 Run locally: `cargo run -- --port 19800 --data-dir ./data`.
 

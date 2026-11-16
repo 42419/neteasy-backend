@@ -47,5 +47,9 @@ pub async fn serve_ncm_api(opts: ServeOptions) -> std::io::Result<()> {
     );
     let bootstrap = request.clone();
     tokio::spawn(async move { generate_config::generate_config(&bootstrap).await });
-    axum::serve(listener, server::build_app(request)).await
+    axum::serve(
+        listener,
+        server::build_app(request).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
 }

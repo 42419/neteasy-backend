@@ -239,7 +239,8 @@ impl Request {
     }
 
     pub fn mark_ready(&self) {
-        let _ = self.inner.ready.send(true);
+        // send_replace: `send` would not update the value while no receiver is subscribed yet
+        self.inner.ready.send_replace(true);
     }
 
     fn persist(&self, name: &str, content: &str) {
@@ -317,9 +318,15 @@ impl Request {
             "Content-Type".into(),
             "application/x-www-form-urlencoded".into(),
         )];
-        if !options.real_ip.is_empty() {
-            headers.push(("X-Real-IP".into(), options.real_ip.clone()));
-            headers.push(("X-Forwarded-For".into(), options.real_ip.clone()));
+        // upstream: `const ip = options.realIP || options.ip || ''` (ip = the client's address as seen by the server)
+        let ip = if options.real_ip.is_empty() {
+            options.ip.clone()
+        } else {
+            options.real_ip.clone()
+        };
+        if !ip.is_empty() {
+            headers.push(("X-Real-IP".into(), ip.clone()));
+            headers.push(("X-Forwarded-For".into(), ip));
         }
         let cookie = self.process_cookie(&options.cookie, &crypto_mode);
         headers.push(("Cookie".into(), cookie_obj_to_string(&cookie)));
@@ -750,6 +757,44 @@ mod tests {
         let secret = x25519_dalek::StaticSecret::from([7u8; 32]);
         base64::engine::general_purpose::STANDARD
             .encode(x25519_dalek::PublicKey::from(&secret).as_bytes())
+    }
+
+    #[tokio::test]
+    async fn mark_ready_releases_waiters_even_without_subscribers() {
+        let r = req();
+        r.mark_ready();
+        // must return immediately, not after the 20 s bootstrap timeout
+        tokio::time::timeout(Duration::from_millis(500), r.wait_until_ready())
+            .await
+            .expect("ready");
+    }
+
+    #[test]
+    fn client_ip_becomes_real_ip_headers() {
+        let r = req();
+        let o = Options {
+            crypto: "weapi".into(),
+            ip: "127.0.0.1".into(),
+            ..Default::default()
+        };
+        let p = r.prepare("/api/x", data(json!({})), &o).unwrap();
+        assert!(p
+            .headers
+            .iter()
+            .any(|(k, v)| k == "X-Real-IP" && v == "127.0.0.1"));
+        assert!(p
+            .headers
+            .iter()
+            .any(|(k, v)| k == "X-Forwarded-For" && v == "127.0.0.1"));
+        let o = Options {
+            real_ip: "1.2.3.4".into(),
+            ..o
+        };
+        let p = r.prepare("/api/x", data(json!({})), &o).unwrap();
+        assert!(p
+            .headers
+            .iter()
+            .any(|(k, v)| k == "X-Real-IP" && v == "1.2.3.4"));
     }
 
     #[test]

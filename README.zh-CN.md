@@ -51,14 +51,14 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 
 | 路由 | 加密方式 | 状态 |
 |------|----------|------|
-| `/login/qr/key`、`/login/qr/create`、`/login/qr/check`、`/login/status` | eapi / 本地生成 / eapi / weapi | 已移植，离线测试通过（待联网验证） |
-| `/song/url/v1` | xeapi | 已移植，离线测试通过（待联网验证） |
-| `/song/detail`、`/lyric`、`/lyric/new` | weapi / eapi | 已移植，离线测试通过（待联网验证） |
-| `/search`、`/search/suggest`、`/search/hot` | eapi / weapi / eapi | 已移植，离线测试通过（待联网验证） |
-| `/playlist/detail`、`/playlist/track/all`、`/user/playlist`、`/user/detail` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
-| `/recommend/songs`、`/personalized`、`/toplist`、`/banner`、`/album` | weapi / eapi | 已移植，离线测试通过（待联网验证） |
-| `/likelist`、`/like` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
-| `/comment/new`、`/comment/like` | eapi / weapi | 已移植，离线测试通过（待联网验证） |
+| `/login/qr/key`、`/login/qr/create`、`/login/qr/check`、`/login/status` | eapi / 本地生成 / eapi / weapi | 已移植，国内网络实测通过 |
+| `/song/url/v1` | xeapi | 已移植，国内网络实测通过 |
+| `/song/detail`、`/lyric`、`/lyric/new` | weapi / eapi | 已移植，国内网络实测通过 |
+| `/search`、`/search/suggest`、`/search/hot` | eapi / weapi / eapi | 已移植，国内网络实测通过 |
+| `/playlist/detail`、`/playlist/track/all`、`/user/playlist`、`/user/detail` | eapi / weapi | 已移植，国内网络实测通过 |
+| `/recommend/songs`、`/personalized`、`/toplist`、`/banner`、`/album` | weapi / eapi | 已移植，国内网络实测通过 |
+| `/likelist`、`/like` | eapi / weapi | 已移植，国内网络实测通过 |
+| `/comment/new`、`/comment/like` | eapi / weapi | 已移植，国内网络实测通过 |
 | `/comment/add` | xeapi + checkToken v3 | 待做（需要反作弊 token） |
 
 另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
@@ -79,6 +79,8 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 - `ci.yml`：fmt、clippy（`-D warnings`）、测试；另有 `android` 任务，交叉编译 `arm64-v8a` 的 `cdylib` 并报告体积。
 - `upstream-check.yml`（每周）：用最新上游 `crypto.js` 重新生成对拍向量并跑加密测试，上游改了加密就会失败。
 - `smoke.yml`（手动）：对真实网易云服务器跑一遍各接口，结果以 annotation 形式输出。
+
+注意：GitHub runner 在境外，联网结果受地区影响（例如 `/song/url/v1` 拿不到可播放地址），真实播放请在国内网络下验证。
 
 本地运行：`cargo run -- --port 19800 --data-dir ./data`。
 

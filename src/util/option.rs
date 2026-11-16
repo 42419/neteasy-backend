@@ -9,6 +9,8 @@ pub struct Options {
     pub cookie: Cookie,
     pub ua: String,
     pub real_ip: String,
+    /// client address as seen by the server (upstream `options.ip`)
+    pub ip: String,
     pub e_r: Option<Value>,
     pub domain: String,
     pub check_token: String,
@@ -34,6 +36,7 @@ pub fn create_option_with(query: &Query, crypto: &str, check_token: &str) -> Opt
         cookie,
         ua: query.get("ua").unwrap_or("").to_string(),
         real_ip: query.get("realIP").unwrap_or("").to_string(),
+        ip: query.ip.clone(),
         e_r: query.truthy("e_r").map(|s| Value::String(s.to_string())),
         domain: query.get("domain").unwrap_or("").to_string(),
         check_token: query

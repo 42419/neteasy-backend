@@ -146,6 +146,8 @@ mod tests {
 pub struct Query {
     pub params: IndexMap<String, String>,
     pub cookie: Cookie,
+    /// peer address of the HTTP client (upstream: `req.ip`)
+    pub ip: String,
 }
 
 impl Query {

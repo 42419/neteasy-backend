@@ -89,6 +89,11 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
         );
     };
 
+    let ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|c| c.0.ip().to_string())
+        .unwrap_or_default();
     let cookies_from_header = request_cookies(&req);
     let query_str = req.uri().query().unwrap_or("").to_string();
     let is_form = req
@@ -137,7 +142,7 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
         .get("noCookie")
         .map(|s| !s.is_empty())
         .unwrap_or(false);
-    let query = Query { params, cookie };
+    let query = Query { params, cookie, ip };
 
     match module(query, &app.request).await {
         Ok(answer) => {
