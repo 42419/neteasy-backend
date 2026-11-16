@@ -1,0 +1,27 @@
+name: Release
+
+# Tag `vX.Y.Z` -> builds jniLibs for all ABIs and attaches a zip to the GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  jnilibs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - run: cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o jniLibs build --release --lib
+      - run: cd jniLibs && zip -r ../neteasy-backend-jniLibs.zip .
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: neteasy-backend-jniLibs.zip

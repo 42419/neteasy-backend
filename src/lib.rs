@@ -9,6 +9,8 @@
 // Modules return `Result<Answer, Answer>` like upstream's resolve/reject of `{ status, body, cookie }`.
 #![allow(clippy::result_large_err)]
 
+#[cfg(target_os = "android")]
+mod android;
 pub mod generate_config;
 pub mod module;
 pub mod server;
