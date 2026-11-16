@@ -1,0 +1,39 @@
+name: Live smoke test
+
+# Manual: builds the server, lets it bootstrap (xeapi key + guest token) and calls the endpoints the
+# app depends on against the real NetEase servers. Results are emitted as annotations.
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: Run server and call endpoints
+        run: |
+          ./target/release/neteasy-backend --port 19800 --data-dir "$RUNNER_TEMP/data" > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:19800/ >/dev/null && break; sleep 1; done
+          sleep 10
+          call() {
+            name=$1
+            out=$(curl -s -m 30 -w ' [http %{http_code}]' "http://127.0.0.1:19800$2" | tr '\n\r%' '   ' | head -c 400)
+            echo "$name -> $out"
+            echo "::notice title=$name::$out"
+          }
+          call register_anonimous "/register/anonimous"
+          call login_qr_key "/login/qr/key?timestamp=$(date +%s000)"
+          call song_detail "/song/detail?ids=347230"
+          call song_url_v1 "/song/url/v1?id=347230&level=standard"
+          call lyric_new "/lyric/new?id=347230"
+          call search "/search?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&limit=2"
+          call search_suggest "/search/suggest?keywords=%E5%91%A8&type=mobile"
+          call search_hot "/search/hot"
+          call playlist_detail "/playlist/detail?id=3778678"
+          call toplist "/toplist"
+          call banner "/banner?type=1"
+          call personalized "/personalized?limit=2"
+          echo "::notice title=server.log::$(tail -n 15 server.log | tr '\n\r%' '|  ' | head -c 600)"

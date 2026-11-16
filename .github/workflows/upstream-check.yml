@@ -1,0 +1,32 @@
+name: Upstream crypto check
+
+# Regenerates the cross-check vectors from the *latest* api-enhanced `util/crypto.js` and runs the
+# crypto tests. A failure means upstream changed its crypto and the Rust port must follow.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  vectors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Generate vectors from latest upstream
+        run: |
+          git clone --depth 1 https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced.git "$RUNNER_TEMP/up"
+          echo "::notice title=upstream::$(git -C "$RUNNER_TEMP/up" log -1 --format='%h %cs %s')"
+          mkdir -p "$RUNNER_TEMP/v/util"
+          cp "$RUNNER_TEMP/up/util/crypto.js" "$RUNNER_TEMP/v/util/crypto.js"
+          echo "module.exports={}" > "$RUNNER_TEMP/v/util/zstd.js"
+          (cd "$RUNNER_TEMP/v" && npm init -y >/dev/null && npm i --no-audit --no-fund crypto-js node-forge >/dev/null)
+          node scripts/gen_vectors.js "$RUNNER_TEMP/v/util/crypto.js"
+      - run: cargo test --test crypto_vectors
