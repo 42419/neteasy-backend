@@ -1,0 +1,50 @@
+name: Compare with upstream (live)
+
+# Manual A/B check on the same runner: starts api-enhanced (Node) and this server side by side and calls the
+# same endpoints on both, so environment effects (region/IP) can be told apart from porting bugs.
+on:
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: Start both servers
+        run: |
+          git clone --depth 1 https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced.git "$RUNNER_TEMP/up"
+          (cd "$RUNNER_TEMP/up" && npm install --no-audit --no-fund --omit=dev > "$RUNNER_TEMP/npm.log" 2>&1; tail -n 2 "$RUNNER_TEMP/npm.log")
+          (cd "$RUNNER_TEMP/up" && PORT=3000 nohup node app.js > "$RUNNER_TEMP/up.log" 2>&1 &)
+          nohup ./target/release/neteasy-backend --port 19800 --data-dir "$RUNNER_TEMP/data" > "$RUNNER_TEMP/me.log" 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:3000/ >/dev/null && break; sleep 1; done
+          for i in $(seq 1 40); do curl -sf http://127.0.0.1:19800/ >/dev/null && break; sleep 1; done
+          sleep 15
+      - name: Call the same endpoints on both
+        run: |
+          cmp() {
+            name=$1; path=$2; filter=$3
+            for who in UP:3000 ME:19800; do
+              label=${who%%:*}; port=${who##*:}
+              raw=$(curl -s -m 40 "http://127.0.0.1:$port$path")
+              out=$(printf '%s' "$raw" | jq -c "$filter" 2>/dev/null || true)
+              [ -z "$out" ] && out="RAW: $(printf '%s' "$raw" | head -c 160)"
+              echo "$name $label: $(printf '%s' "$out" | head -c 230)"
+            done
+          }
+          {
+            cmp anonimous "/register/anonimous" '{code, msg, hasCookie:(.cookie!=null and (.cookie|length)>0)}'
+            cmp song_url "/song/url/v1?id=347230,33894312,1969519579&level=standard" '[.data[]|{id,code,br,hasUrl:(.url!=null)}]'
+            cmp track_all "/playlist/track/all?id=3778678&limit=3" '{code, n:(.songs|length)}'
+            cmp login_status "/login/status" '{code:.data.code, acct:(.data.account.id // null)}'
+            cmp detail "/song/detail?ids=347230" '[.songs[]|.name]'
+          } > cmp.txt
+          cat cmp.txt
+          echo "::notice title=compare::$(tr '\n\r%' '|  ' < cmp.txt | head -c 4000)"
+          echo "::notice title=up.log::$(tail -n 8 "$RUNNER_TEMP/up.log" | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 1500)"
+          echo "::notice title=me.log::$(tail -n 8 "$RUNNER_TEMP/me.log" | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 1500)"
