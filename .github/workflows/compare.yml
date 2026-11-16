@@ -39,9 +39,14 @@ jobs:
             name=$1; path=$2; filter=$3
             for who in UP:3000 ME:19800; do
               label=${who%%:*}; port=${who##*:}
-              raw=$(curl -s -m 40 "http://127.0.0.1:$port$path")
-              out=$(printf '%s' "$raw" | jq -c "$filter" 2>/dev/null || true)
-              [ -z "$out" ] && out="RAW: $(printf '%s' "$raw" | head -c 160)"
+              t0=$(date +%s)
+              raw=$(curl -s -m 40 "http://127.0.0.1:$port$path" || true)
+              dt=$(( $(date +%s) - t0 ))
+              if [ -z "$raw" ]; then out="EMPTY/TIMEOUT after ${dt}s"; else
+                out=$(printf '%s' "$raw" | jq -c "$filter" 2>/dev/null || true)
+                [ -z "$out" ] && out="RAW: $(printf '%s' "$raw" | head -c 160)"
+                out="$out (${dt}s)"
+              fi
               echo "$name $label: $(printf '%s' "$out" | head -c 230)"
             done
           }
