@@ -36,4 +36,8 @@ jobs:
           call toplist "/toplist"
           call banner "/banner?type=1"
           call personalized "/personalized?limit=2"
-          echo "::notice title=server.log::$(tail -n 15 server.log | tr '\n\r%' '|  ' | head -c 600)"
+          n=0
+          while IFS= read -r line; do
+            n=$((n+1))
+            echo "::notice title=log$n::$(printf '%s' "$line" | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 380)"
+          done < <(tail -n 12 server.log)

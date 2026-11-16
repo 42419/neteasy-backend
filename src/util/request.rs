@@ -312,7 +312,11 @@ impl Request {
         if crypto_mode.is_empty() {
             crypto_mode = if ENCRYPT { "eapi".into() } else { "api".into() };
         }
-        let mut headers: Vec<(String, String)> = Vec::new();
+        // axios sends string bodies as form-urlencoded by default; reqwest needs it spelled out
+        let mut headers: Vec<(String, String)> = vec![(
+            "Content-Type".into(),
+            "application/x-www-form-urlencoded".into(),
+        )];
         if !options.real_ip.is_empty() {
             headers.push(("X-Real-IP".into(), options.real_ip.clone()));
             headers.push(("X-Forwarded-For".into(), options.real_ip.clone()));
