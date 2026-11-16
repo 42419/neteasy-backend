@@ -23,7 +23,7 @@ package top.yunov.neteasy
 object RustBackend {
     init { System.loadLibrary("neteasy_backend") }
 
-    /** Non-blocking. Returns true if this call started the server, false if it was already running. */
+    /** Returns true once the port is bound and connectable; false if it was already running or the bind failed. */
     @JvmStatic external fun start(dataDir: String, port: Int): Boolean
 }
 ```
@@ -42,7 +42,7 @@ override fun onCreate() {
 ```
 
 No more `assets/nodejs-project`, no APK-update copy, no `libnode`, no `native-lib.cpp` / `CMakeLists.txt`,
-no pnpm/patch Gradle tasks. The listening socket is bound before the first network call is made, so the
+no pnpm/patch Gradle tasks. `start` only returns after the listening socket is bound (at most a few ms), so the
 connection-refused retry loop in `ApiClient` is no longer needed on cold start (it is harmless if kept).
 
 ## 4. Notes

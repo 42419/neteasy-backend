@@ -9,7 +9,7 @@
 //! ```
 //! 类名必须是 `top.yunov.neteasy.RustBackend`（JNI 符号名里编码了类名）。
 
-use crate::{serve_ncm_api, ServeOptions};
+use crate::{serve_with_ready, ServeOptions};
 use jni::objects::{JClass, JString};
 use jni::sys::{jboolean, jint, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
@@ -17,8 +17,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 static STARTED: AtomicBool = AtomicBool::new(false);
 
-/// 在后台线程启动 HTTP 后端并立即返回。
-/// 本次调用成功启动返回 `true`；已经在运行或参数无效时返回 `false`。
+/// 在后台线程启动 HTTP 后端，并等到端口绑定成功后才返回（最多等 5 秒）。
+/// 返回 `true` 表示本次调用成功启动、端口已可连接；已经在运行、参数无效或绑定失败（如端口被占用）时返回 `false`。
 #[no_mangle]
 pub extern "system" fn Java_top_yunov_neteasy_RustBackend_start(
     mut env: JNIEnv,
@@ -47,6 +47,7 @@ pub extern "system" fn Java_top_yunov_neteasy_RustBackend_start(
         port: port as u16,
         data_dir: dir.into(),
     };
+    let (tx, rx) = std::sync::mpsc::channel();
     let spawned = std::thread::Builder::new()
         .name("neteasy-backend".into())
         .spawn(move || {
@@ -58,11 +59,12 @@ pub extern "system" fn Java_top_yunov_neteasy_RustBackend_start(
                 Ok(rt) => rt,
                 Err(e) => {
                     log::error!("tokio runtime: {e}");
+                    let _ = tx.send(Err(e));
                     STARTED.store(false, Ordering::SeqCst);
                     return;
                 }
             };
-            if let Err(e) = rt.block_on(serve_ncm_api(opts)) {
+            if let Err(e) = rt.block_on(serve_with_ready(opts, Some(tx))) {
                 log::error!("server stopped: {e}");
             }
             STARTED.store(false, Ordering::SeqCst);
@@ -71,5 +73,8 @@ pub extern "system" fn Java_top_yunov_neteasy_RustBackend_start(
         STARTED.store(false, Ordering::SeqCst);
         return JNI_FALSE;
     }
-    JNI_TRUE
+    match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+        Ok(Ok(())) => JNI_TRUE,
+        _ => JNI_FALSE,
+    }
 }
