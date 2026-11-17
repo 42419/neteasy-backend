@@ -18,21 +18,134 @@ use axum::{
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 struct App {
     request: Request,
     routes: HashMap<String, ModuleFn>,
+    cache: ResponseCache,
+}
+
+/// 默认缓存有效期，对应上游的 `cache('2 minutes')`
+pub const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(120);
+
+/// 允许缓存的 GET 路由。比上游的「全部缓存」保守：只放读多写少、过期几分钟无所谓的接口。
+/// 登录、点赞、游客注册、喜欢列表、播放地址等有状态或时效性强的接口一律不缓存。
+const CACHEABLE_ROUTES: &[&str] = &[
+    "/banner",
+    "/personalized",
+    "/toplist",
+    "/search",
+    "/search/hot",
+    "/search/suggest",
+    "/playlist/detail",
+    "/playlist/track/all",
+    "/album",
+    "/song/detail",
+    "/lyric",
+    "/lyric/new",
+    "/recommend/songs",
+    "/comment/new",
+    "/user/detail",
+];
+
+const CACHE_MAX_ENTRIES: usize = 256;
+
+/// GET 响应缓存（对应上游的 apicache）。
+/// 缓存键 = 路由 + 全部参数（含 `timestamp`，带它就等于绕过缓存）+ 登录身份（MUSIC_U），
+/// 所以不同账号、游客和登录态之间不会串数据。带 Set-Cookie 或业务码不是 200 的响应不缓存。
+pub struct ResponseCache {
+    ttl: Duration,
+    entries: Mutex<HashMap<String, (Instant, Answer)>>,
+}
+
+impl ResponseCache {
+    pub fn new(ttl: Duration) -> Self {
+        ResponseCache {
+            ttl,
+            entries: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn cacheable(&self, path: &str) -> bool {
+        !self.ttl.is_zero() && CACHEABLE_ROUTES.contains(&path)
+    }
+
+    pub fn key(path: &str, query: &Query) -> String {
+        let mut params: Vec<(&String, &String)> = query.params.iter().collect();
+        params.sort();
+        let params = params
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join("&");
+        let identity = query
+            .cookie
+            .get("MUSIC_U")
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        format!("{path}?{params}|{identity}")
+    }
+
+    pub fn get(&self, key: &str) -> Option<Answer> {
+        let mut map = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        match map.get(key) {
+            Some((at, answer)) if at.elapsed() < self.ttl => Some(answer.clone()),
+            Some(_) => {
+                map.remove(key);
+                None
+            }
+            None => None,
+        }
+    }
+
+    pub fn put(&self, key: String, answer: &Answer) {
+        let ok = answer.status == 200
+            && answer.cookie.is_empty()
+            && answer
+                .body
+                .get("code")
+                .and_then(Value::as_i64)
+                .map(|c| c == 200)
+                .unwrap_or(true);
+        if !ok || self.ttl.is_zero() {
+            return;
+        }
+        let mut map = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        if map.len() >= CACHE_MAX_ENTRIES && !map.contains_key(&key) {
+            let ttl = self.ttl;
+            map.retain(|_, (at, _)| at.elapsed() < ttl);
+            if map.len() >= CACHE_MAX_ENTRIES {
+                // 仍然满了：丢掉最旧的一条
+                if let Some(oldest) = map
+                    .iter()
+                    .min_by_key(|(_, (at, _))| *at)
+                    .map(|(k, _)| k.clone())
+                {
+                    map.remove(&oldest);
+                }
+            }
+        }
+        map.insert(key, (Instant::now(), answer.clone()));
+    }
 }
 
 pub fn build_app(request: Request) -> Router {
+    build_app_with(request, DEFAULT_CACHE_TTL)
+}
+
+/// `cache_ttl` 为 0 表示关闭响应缓存。
+pub fn build_app_with(request: Request, cache_ttl: Duration) -> Router {
     let routes = registry()
         .into_iter()
         .map(|(_, route, f)| (route, f))
         .collect();
-    Router::new()
-        .fallback(handle)
-        .with_state(Arc::new(App { request, routes }))
+    Router::new().fallback(handle).with_state(Arc::new(App {
+        request,
+        routes,
+        cache: ResponseCache::new(cache_ttl),
+    }))
 }
 
 fn json_response(status: u16, body: &Value, cookies: &[String]) -> Response {
@@ -89,6 +202,7 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
         );
     };
 
+    let method = req.method().clone();
     let ip = req
         .extensions()
         .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
@@ -144,8 +258,21 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
         .unwrap_or(false);
     let query = Query { params, cookie, ip };
 
+    // 只缓存白名单里的 GET 请求
+    let cache_key = (method == Method::GET && app.cache.cacheable(&path))
+        .then(|| ResponseCache::key(&path, &query));
+    if let Some(hit) = cache_key.as_deref().and_then(|k| app.cache.get(k)) {
+        let mut res = json_response(hit.status, &hit.body, &[]);
+        res.headers_mut()
+            .insert("x-neteasy-cache", HeaderValue::from_static("hit"));
+        return res;
+    }
+
     match module(query, &app.request).await {
         Ok(answer) => {
+            if let Some(key) = cache_key {
+                app.cache.put(key, &answer);
+            }
             let cookies: &[String] = if no_cookie { &[] } else { &answer.cookie };
             json_response(answer.status, &answer.body, cookies)
         }
@@ -228,6 +355,109 @@ mod tests {
     async fn qr_create_without_qrimg_has_empty_image() {
         let (_, b) = get("/login/qr/create?key=k").await;
         assert_eq!(b["data"]["qrimg"], "");
+    }
+
+    fn q(params: &[(&str, &str)], music_u: Option<&str>) -> Query {
+        let mut query = Query::default();
+        for (k, v) in params {
+            query.params.insert(k.to_string(), v.to_string());
+        }
+        if let Some(u) = music_u {
+            query.cookie.insert("MUSIC_U".into(), u.into());
+        }
+        query
+    }
+
+    fn ok_answer() -> Answer {
+        Answer::new(200, json!({ "code": 200, "data": [1, 2, 3] }), vec![])
+    }
+
+    #[test]
+    fn cache_key_separates_accounts_params_and_cache_busting() {
+        let guest = ResponseCache::key("/search", &q(&[("keywords", "a")], None));
+        let user = ResponseCache::key("/search", &q(&[("keywords", "a")], Some("tok")));
+        assert_ne!(guest, user, "游客和登录用户不能共用缓存");
+        assert_ne!(
+            user,
+            ResponseCache::key("/search", &q(&[("keywords", "b")], Some("tok")))
+        );
+        // 参数顺序无关
+        assert_eq!(
+            ResponseCache::key("/x", &q(&[("a", "1"), ("b", "2")], None)),
+            ResponseCache::key("/x", &q(&[("b", "2"), ("a", "1")], None))
+        );
+        // 带 timestamp 就等于换了一个键，相当于绕过缓存
+        assert_ne!(
+            ResponseCache::key("/banner", &q(&[("type", "1")], None)),
+            ResponseCache::key("/banner", &q(&[("type", "1"), ("timestamp", "1")], None))
+        );
+    }
+
+    #[test]
+    fn only_read_mostly_routes_are_cacheable() {
+        let c = ResponseCache::new(DEFAULT_CACHE_TTL);
+        for p in [
+            "/banner",
+            "/search",
+            "/song/detail",
+            "/lyric/new",
+            "/comment/new",
+        ] {
+            assert!(c.cacheable(p), "{p}");
+        }
+        for p in [
+            "/login/status",
+            "/login/qr/check",
+            "/like",
+            "/likelist",
+            "/comment/like",
+            "/song/url/v1",
+            "/register/anonimous",
+        ] {
+            assert!(!c.cacheable(p), "{p} 不应缓存");
+        }
+        assert!(
+            !ResponseCache::new(Duration::ZERO).cacheable("/banner"),
+            "ttl=0 即关闭"
+        );
+    }
+
+    #[test]
+    fn cache_hit_expiry_and_rejection_rules() {
+        let c = ResponseCache::new(Duration::from_millis(80));
+        c.put("k".into(), &ok_answer());
+        assert_eq!(c.get("k").unwrap().body["data"], json!([1, 2, 3]));
+        std::thread::sleep(Duration::from_millis(120));
+        assert!(c.get("k").is_none(), "过期后应当失效");
+
+        c.put(
+            "with-cookie".into(),
+            &Answer::new(200, json!({ "code": 200 }), vec!["MUSIC_U=x".into()]),
+        );
+        c.put(
+            "biz-error".into(),
+            &Answer::new(200, json!({ "code": 801 }), vec![]),
+        );
+        c.put(
+            "http-error".into(),
+            &Answer::new(400, json!({ "code": 200 }), vec![]),
+        );
+        for k in ["with-cookie", "biz-error", "http-error"] {
+            assert!(c.get(k).is_none(), "{k} 不应被缓存");
+        }
+    }
+
+    #[test]
+    fn cache_is_bounded() {
+        let c = ResponseCache::new(DEFAULT_CACHE_TTL);
+        for i in 0..(CACHE_MAX_ENTRIES + 20) {
+            c.put(format!("k{i}"), &ok_answer());
+        }
+        assert!(c.entries.lock().unwrap().len() <= CACHE_MAX_ENTRIES);
+        assert!(
+            c.get(&format!("k{}", CACHE_MAX_ENTRIES + 19)).is_some(),
+            "最新的应当还在"
+        );
     }
 
     #[test]
