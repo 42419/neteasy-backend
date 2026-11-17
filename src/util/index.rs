@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use rand::Rng;
 use serde_json::{Map, Value};
+use std::sync::OnceLock;
 
 /// 有序的 cookie 映射（和 JS 对象一样保留插入顺序）。
 pub type Cookie = IndexMap<String, String>;
@@ -102,6 +103,84 @@ pub fn js_string(v: &Value) -> String {
 
 pub type Data = Map<String, Value>;
 
+/// 中国 IP 段列表（CIDR），来自 api-enhanced 的 `data/china_ip_ranges.txt`。
+const CHINA_IP_RANGES: &str = include_str!("../../data/china_ip_ranges.txt");
+
+/// 一个 IP 段：起始地址 + 地址个数（2^(32-前缀长度)）
+struct IpRange {
+    start: u32,
+    count: u64,
+}
+
+/// 解析 CIDR 列表；忽略空行、注释、非法行和开头可能带的 BOM。
+fn parse_ip_ranges(text: &str) -> Vec<IpRange> {
+    text.lines()
+        .map(|l| l.trim().trim_start_matches('\u{feff}'))
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| {
+            let (ip, prefix) = l.split_once('/')?;
+            let prefix: u32 = prefix.parse().ok().filter(|p| *p <= 32)?;
+            let addr: std::net::Ipv4Addr = ip.parse().ok()?;
+            let count = 1u64 << (32 - prefix);
+            // 起始地址按前缀对齐（和 `strict=False` 的行为一致）
+            let mask = if prefix == 0 {
+                0
+            } else {
+                u32::MAX << (32 - prefix)
+            };
+            Some(IpRange {
+                start: u32::from(addr) & mask,
+                count,
+            })
+        })
+        .collect()
+}
+
+fn china_ip_ranges() -> &'static (Vec<IpRange>, u64) {
+    static RANGES: OnceLock<(Vec<IpRange>, u64)> = OnceLock::new();
+    RANGES.get_or_init(|| {
+        let ranges = parse_ip_ranges(CHINA_IP_RANGES);
+        let total = ranges.iter().map(|r| r.count).sum();
+        (ranges, total)
+    })
+}
+
+/// 对应 `generateRandomChineseIP`：按段大小加权随机选一个中国 IP 段，再在段内随机取一个地址。
+pub fn generate_random_chinese_ip() -> String {
+    generate_chinese_ip_with(&mut rand::thread_rng())
+}
+
+/// 与 [`generate_random_chinese_ip`] 相同，但随机数发生器可注入（便于测试）。
+pub fn generate_chinese_ip_with(rng: &mut impl Rng) -> String {
+    let (ranges, total) = china_ip_ranges();
+    if *total == 0 {
+        // 兜底：和上游一样回退到随机 116.x 前缀
+        return format!(
+            "116.{}.{}.{}",
+            rng.gen_range(25..=94),
+            rng.gen_range(0..=255),
+            rng.gen_range(0..=255)
+        );
+    }
+    let mut offset = rng.gen_range(0..*total);
+    let chosen = ranges
+        .iter()
+        .find(|r| {
+            if offset < r.count {
+                true
+            } else {
+                offset -= r.count;
+                false
+            }
+        })
+        .or(ranges.last())
+        .expect("ranges not empty");
+    let ip = chosen
+        .start
+        .wrapping_add(rng.gen_range(0..chosen.count) as u32);
+    std::net::Ipv4Addr::from(ip).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,6 +209,40 @@ mod tests {
         assert!(d
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_lowercase()));
+    }
+
+    #[test]
+    fn china_ip_ranges_load_with_bom_and_comments() {
+        let r = parse_ip_ranges("\u{feff}1.2.4.0/24\n# 注释\n\nbad\n10.0.0.0/33\n1.8.0.0/14\n");
+        assert_eq!(r.len(), 2);
+        assert_eq!(
+            (r[0].start, r[0].count),
+            (u32::from(std::net::Ipv4Addr::new(1, 2, 4, 0)), 256)
+        );
+        // /14 → 2^18 个地址
+        assert_eq!(r[1].count, 1 << 18);
+    }
+
+    #[test]
+    fn bundled_range_file_is_usable() {
+        let (ranges, total) = china_ip_ranges();
+        assert!(ranges.len() > 4000, "解析出的 IP 段太少: {}", ranges.len());
+        assert!(*total > 200_000_000);
+    }
+
+    #[test]
+    fn random_chinese_ip_falls_inside_a_known_range() {
+        let (ranges, _) = china_ip_ranges();
+        for _ in 0..200 {
+            let ip: std::net::Ipv4Addr = generate_random_chinese_ip().parse().expect("valid ipv4");
+            let n = u32::from(ip) as u64;
+            assert!(
+                ranges
+                    .iter()
+                    .any(|r| n >= r.start as u64 && n < r.start as u64 + r.count),
+                "{ip} 不在任何中国 IP 段内"
+            );
+        }
     }
 
     #[test]

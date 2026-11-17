@@ -11,6 +11,8 @@ pub struct Options {
     pub real_ip: String,
     /// 服务器看到的客户端地址（上游的 `options.ip`）
     pub ip: String,
+    /// 是否使用随机中国 IP 填充 X-Real-IP：`None` 表示未指定，沿用服务器的默认设置
+    pub random_cn_ip: Option<bool>,
     pub e_r: Option<Value>,
     pub domain: String,
     pub check_token: String,
@@ -37,6 +39,12 @@ pub fn create_option_with(query: &Query, crypto: &str, check_token: &str) -> Opt
         ua: query.get("ua").unwrap_or("").to_string(),
         real_ip: query.get("realIP").unwrap_or("").to_string(),
         ip: query.ip.clone(),
+        // 对应上游的 randomCNIP：query 里写 true/1 开启，false 关闭，不写则沿用服务器默认
+        random_cn_ip: query.get("randomCNIP").and_then(|v| match v {
+            "true" | "1" => Some(true),
+            "false" | "0" => Some(false),
+            _ => None,
+        }),
         e_r: query.truthy("e_r").map(|s| Value::String(s.to_string())),
         domain: query.get("domain").unwrap_or("").to_string(),
         check_token: query

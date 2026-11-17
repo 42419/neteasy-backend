@@ -1,3 +1,5 @@
 Portions of this project (crypto routines, request pipeline, endpoint definitions) are derived from
 NeteaseCloudMusicApiEnhanced (api-enhanced), MIT License.
 https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced
+
+其中 data/china_ip_ranges.txt（中国 IP 段列表，用于随机中国 IP）同样取自 api-enhanced。

@@ -12,6 +12,7 @@ use indexmap::IndexMap;
 use rand::RngCore;
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::watch;
@@ -101,6 +102,8 @@ struct State {
     nmtid: String,
     nmtid_retries_left: u8,
     wnmcid: String,
+    /// 对应上游的 `global.cnIp`：启动时生成一次，整个运行期复用，避免同一会话里 IP 来回变
+    cn_ip: String,
 }
 
 struct Inner {
@@ -108,6 +111,8 @@ struct Inner {
     data_dir: PathBuf,
     state: RwLock<State>,
     ready: watch::Sender<bool>,
+    /// 服务器级默认：是否一律用随机中国 IP 填充 X-Real-IP（单次请求可用 `randomCNIP` 覆盖）
+    random_cn_ip_default: AtomicBool,
 }
 
 /// 请求管线的共享句柄，克隆开销很小。
@@ -176,6 +181,9 @@ impl Request {
         };
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
+            // 并发请求（比如首页同时拉 4 个接口）复用连接、减少握手；小包请求不等 Nagle 合并
+            .tcp_nodelay(true)
+            .pool_idle_timeout(Duration::from_secs(90))
             .timeout(Duration::from_secs(30))
             .build()
             .expect("http client");
@@ -190,9 +198,11 @@ impl Request {
                     xeapi_key,
                     nmtid_retries_left: 3,
                     wnmcid,
+                    cn_ip: generate_random_chinese_ip(),
                     ..Default::default()
                 }),
                 ready,
+                random_cn_ip_default: AtomicBool::new(false),
             }),
             wait_ready: true,
         }
@@ -236,6 +246,22 @@ impl Request {
         self.inner.state.write().unwrap().xeapi_key = Some(key.clone());
         let v = json!({ "publicKey": key.public_key_b64, "version": key.version, "sk": key.sk, "deviceId": device_id });
         self.persist("xeapi_public_key", &v.to_string());
+    }
+
+    /// 设置服务器级默认：是否一律使用随机中国 IP（对应上游环境变量 `ENABLE_RANDOM_CN_IP`）
+    pub fn set_default_random_cn_ip(&self, on: bool) {
+        self.inner.random_cn_ip_default.store(on, Ordering::Relaxed);
+    }
+
+    /// 本次运行使用的随机中国 IP（对应上游的 `global.cnIp`）
+    pub fn cn_ip(&self) -> String {
+        self.inner.state.read().unwrap().cn_ip.clone()
+    }
+
+    fn random_cn_ip_enabled(&self, options: &Options) -> bool {
+        options
+            .random_cn_ip
+            .unwrap_or_else(|| self.inner.random_cn_ip_default.load(Ordering::Relaxed))
     }
 
     pub fn mark_ready(&self) {
@@ -318,11 +344,14 @@ impl Request {
             "Content-Type".into(),
             "application/x-www-form-urlencoded".into(),
         )];
-        // 上游：`const ip = options.realIP || options.ip || ''`（ip 是服务器看到的客户端地址）
-        let ip = if options.real_ip.is_empty() {
-            options.ip.clone()
-        } else {
+        // 上游的取值顺序：显式 realIP > 随机中国 IP（randomCNIP 或服务器默认）> 客户端地址；
+        // 客户端地址是本机 IPv6 回环（::1）时同样用随机中国 IP
+        let ip = if !options.real_ip.is_empty() {
             options.real_ip.clone()
+        } else if self.random_cn_ip_enabled(options) || options.ip == "::1" {
+            self.cn_ip()
+        } else {
+            options.ip.clone()
         };
         if !ip.is_empty() {
             headers.push(("X-Real-IP".into(), ip.clone()));
@@ -536,15 +565,51 @@ impl Request {
         })
     }
 
-    /// 对应上游的 `request(uri, data, options)`。
+    /// 对应上游的 `request(uri, data, options)`，并在此基础上处理网易云风控（-460）：
+    /// 没有指定过 IP 时，自动换一个随机中国 IP 重试一次；仍失败则在返回体里加上中文提示 `neteasyHint`。
     pub async fn request(
         &self,
         uri: &str,
         data: Map<String, Value>,
         options: Options,
     ) -> AnswerResult {
+        match self.request_once(uri, data.clone(), &options).await {
+            Err(mut first) if is_risk_control(&first) => {
+                let ip_already_chosen =
+                    !options.real_ip.is_empty() || self.random_cn_ip_enabled(&options);
+                if ip_already_chosen {
+                    attach_risk_hint(&mut first, false);
+                    return Err(first);
+                }
+                let mut retry = options.clone();
+                retry.real_ip = generate_random_chinese_ip();
+                log::warn!(
+                    "[风控] {uri} 返回 -460，换用随机中国 IP {} 重试一次",
+                    retry.real_ip
+                );
+                match self.request_once(uri, data, &retry).await {
+                    Ok(answer) => {
+                        log::info!("[风控] {uri} 换用随机中国 IP 后请求成功");
+                        Ok(answer)
+                    }
+                    Err(mut second) => {
+                        attach_risk_hint(&mut second, true);
+                        Err(second)
+                    }
+                }
+            }
+            other => other,
+        }
+    }
+
+    async fn request_once(
+        &self,
+        uri: &str,
+        data: Map<String, Value>,
+        options: &Options,
+    ) -> AnswerResult {
         self.wait_until_ready().await;
-        let prepared = self.prepare(uri, data, &options)?;
+        let prepared = self.prepare(uri, data, options)?;
         let mut rb = self
             .inner
             .http
@@ -643,6 +708,25 @@ impl Request {
 }
 
 pub type Headers = IndexMap<String, String>;
+
+/// 网易云的风控返回码：-460（Cheating，多半是 IP / 设备被判定异常）
+const RISK_CONTROL_CODE: i64 = -460;
+
+fn is_risk_control(a: &Answer) -> bool {
+    a.body.get("code").and_then(Value::as_i64) == Some(RISK_CONTROL_CODE)
+}
+
+/// 给风控失败的响应加一条中文提示（原有的 code / msg 不动，App 可以直接展示 `neteasyHint`）
+fn attach_risk_hint(a: &mut Answer, retried: bool) {
+    let hint = if retried {
+        "触发网易云风控（-460）：已自动换用随机中国 IP 重试，仍被拒绝。请稍后再试，或更换网络环境。"
+    } else {
+        "触发网易云风控（-460）。请稍后再试，或更换网络环境。"
+    };
+    if let Value::Object(m) = &mut a.body {
+        m.insert("neteasyHint".into(), Value::String(hint.into()));
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -795,6 +879,231 @@ mod tests {
             .headers
             .iter()
             .any(|(k, v)| k == "X-Real-IP" && v == "1.2.3.4"));
+    }
+
+    #[test]
+    fn random_cn_ip_replaces_client_ip_when_enabled() {
+        let r = req();
+        let on = Options {
+            crypto: "weapi".into(),
+            ip: "127.0.0.1".into(),
+            random_cn_ip: Some(true),
+            ..Default::default()
+        };
+        let p = r.prepare("/api/x", data(json!({})), &on).unwrap();
+        let sent = &p.headers.iter().find(|(k, _)| k == "X-Real-IP").unwrap().1;
+        assert_eq!(sent, &r.cn_ip());
+        assert_ne!(sent, "127.0.0.1");
+        // 整个运行期复用同一个中国 IP，不会每个请求都变
+        let p2 = r.prepare("/api/y", data(json!({})), &on).unwrap();
+        assert_eq!(
+            &p2.headers.iter().find(|(k, _)| k == "X-Real-IP").unwrap().1,
+            sent
+        );
+    }
+
+    #[test]
+    fn server_default_can_be_overridden_per_request() {
+        let r = req();
+        r.set_default_random_cn_ip(true);
+        let base = Options {
+            crypto: "weapi".into(),
+            ip: "127.0.0.1".into(),
+            ..Default::default()
+        };
+        let p = r.prepare("/api/x", data(json!({})), &base).unwrap();
+        assert_eq!(
+            &p.headers.iter().find(|(k, _)| k == "X-Real-IP").unwrap().1,
+            &r.cn_ip()
+        );
+        let off = Options {
+            random_cn_ip: Some(false),
+            ..base
+        };
+        let p = r.prepare("/api/x", data(json!({})), &off).unwrap();
+        assert_eq!(
+            &p.headers.iter().find(|(k, _)| k == "X-Real-IP").unwrap().1,
+            "127.0.0.1"
+        );
+    }
+
+    #[test]
+    fn ipv6_loopback_uses_the_chinese_ip() {
+        let r = req();
+        let o = Options {
+            crypto: "weapi".into(),
+            ip: "::1".into(),
+            ..Default::default()
+        };
+        let p = r.prepare("/api/x", data(json!({})), &o).unwrap();
+        assert_eq!(
+            &p.headers.iter().find(|(k, _)| k == "X-Real-IP").unwrap().1,
+            &r.cn_ip()
+        );
+    }
+
+    #[test]
+    fn risk_control_detection_and_hint() {
+        let mut a = Answer::new(
+            400,
+            json!({ "code": -460, "msg": "网络太拥挤，请稍后重试!" }),
+            vec![],
+        );
+        assert!(is_risk_control(&a));
+        assert!(!is_risk_control(&Answer::new(
+            400,
+            json!({ "code": 301 }),
+            vec![]
+        )));
+        attach_risk_hint(&mut a, true);
+        assert_eq!(a.body["code"], -460); // 原始字段保持不变
+        assert!(a.body["neteasyHint"]
+            .as_str()
+            .unwrap()
+            .contains("已自动换用随机中国 IP"));
+    }
+
+    /// 本地假的网易云服务：按顺序返回预设的 JSON，并记录每个请求带的 X-Real-IP。
+    /// 返回 (监听端口, 记录到的 IP 列表)。预设用完后一直重复最后一条。
+    fn fake_netease(responses: Vec<&'static str>) -> (u16, Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen2 = seen.clone();
+        std::thread::spawn(move || {
+            let mut n = 0usize;
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { break };
+                // 读到请求头结束，再把 body 读完
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 1024];
+                let header_end = loop {
+                    let k = stream.read(&mut tmp).unwrap_or(0);
+                    if k == 0 {
+                        break None;
+                    }
+                    buf.extend_from_slice(&tmp[..k]);
+                    if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                        break Some(i + 4);
+                    }
+                };
+                let Some(end) = header_end else { continue };
+                let head = String::from_utf8_lossy(&buf[..end]).to_string();
+                let len = head
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                    })
+                    .unwrap_or(0);
+                while buf.len() < end + len {
+                    let k = stream.read(&mut tmp).unwrap_or(0);
+                    if k == 0 {
+                        break;
+                    }
+                    buf.extend_from_slice(&tmp[..k]);
+                }
+                let ip = head
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("x-real-ip:")
+                            .map(|v| v.trim().to_string())
+                    })
+                    .unwrap_or_default();
+                seen2.lock().unwrap().push(ip);
+                let body = responses[n.min(responses.len() - 1)];
+                n += 1;
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+            }
+        });
+        (port, seen)
+    }
+
+    fn weapi_opts(port: u16) -> Options {
+        Options {
+            crypto: "weapi".into(),
+            ip: "127.0.0.1".into(),
+            domain: format!("http://127.0.0.1:{port}"),
+            ..Default::default()
+        }
+    }
+
+    const RISK: &str = r#"{"code":-460,"msg":"网络太拥挤，请稍后重试!"}"#;
+    const OK: &str = r#"{"code":200,"data":"ok"}"#;
+
+    #[tokio::test]
+    async fn risk_control_retries_once_with_a_chinese_ip_and_succeeds() {
+        let (port, seen) = fake_netease(vec![RISK, OK]);
+        let r = req();
+        r.mark_ready();
+        let ans = r
+            .request("/api/x", data(json!({})), weapi_opts(port))
+            .await
+            .expect("重试后应当成功");
+        assert_eq!(ans.body["data"], "ok");
+        let ips = seen.lock().unwrap().clone();
+        assert_eq!(ips.len(), 2, "应当恰好请求两次: {ips:?}");
+        assert_eq!(ips[0], "127.0.0.1", "第一次用客户端地址");
+        assert_ne!(ips[1], "127.0.0.1", "重试换成了随机中国 IP");
+        assert!(ips[1].parse::<std::net::Ipv4Addr>().is_ok());
+    }
+
+    #[tokio::test]
+    async fn risk_control_that_persists_gets_a_chinese_hint() {
+        let (port, seen) = fake_netease(vec![RISK]);
+        let r = req();
+        r.mark_ready();
+        let err = r
+            .request("/api/x", data(json!({})), weapi_opts(port))
+            .await
+            .unwrap_err();
+        assert_eq!(seen.lock().unwrap().len(), 2, "只重试一次，不会无限重试");
+        assert_eq!(err.body["code"], -460);
+        assert!(err.body["neteasyHint"]
+            .as_str()
+            .unwrap()
+            .contains("已自动换用随机中国 IP"));
+    }
+
+    #[tokio::test]
+    async fn no_retry_when_the_ip_was_already_chosen() {
+        let (port, seen) = fake_netease(vec![RISK]);
+        let r = req();
+        r.mark_ready();
+        let mut o = weapi_opts(port);
+        o.real_ip = "1.2.3.4".into();
+        let err = r.request("/api/x", data(json!({})), o).await.unwrap_err();
+        assert_eq!(
+            seen.lock().unwrap().as_slice(),
+            ["1.2.3.4"],
+            "显式指定 IP 后不再自动重试"
+        );
+        assert!(!err.body["neteasyHint"]
+            .as_str()
+            .unwrap()
+            .contains("已自动换用"));
+    }
+
+    #[tokio::test]
+    async fn other_errors_are_not_retried() {
+        let (port, seen) = fake_netease(vec![r#"{"code":301,"msg":"需要登录"}"#]);
+        let r = req();
+        r.mark_ready();
+        let err = r
+            .request("/api/x", data(json!({})), weapi_opts(port))
+            .await
+            .unwrap_err();
+        assert_eq!(err.body["code"], 301);
+        assert_eq!(seen.lock().unwrap().len(), 1);
+        assert!(err.body.get("neteasyHint").is_none());
     }
 
     #[test]
