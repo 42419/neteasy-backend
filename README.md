@@ -59,9 +59,27 @@ Not ported (unused by the app): everything else in upstream `module/`.
   so a warm start is ready immediately (requests during a cold first-run bootstrap wait, bounded to 20 s).
 - `register_anonimous` keeps the stored device id instead of generating a new one on every call
   (the xeapi `sk` is bound to the device id).
-- No 2-minute GET response cache, no CORS middleware, no static pages (loopback-only server for the app).
+- GET response cache (2 minutes, like upstream's apicache) is more conservative: only an allowlist of read-mostly routes
+  is cached, the key includes all params and the login identity (`MUSIC_U`), and responses with `Set-Cookie` or a non-200
+  business code are never cached. `--cache-ttl <secs>` / `--no-cache` to change or disable. No CORS middleware, no static
+  pages (loopback-only server for the app).
 - Not ported: `linuxapi`, `neapi`, `checkToken` (anti-cheat v2/v3, only needed for posting comments, which is out of scope), `unblock`, proxies, random CN IP.
 - `/login/qr/check` on upstream failure surfaces as 404 (upstream's catch block throws a ReferenceError).
+
+## Risk control and random Chinese IP
+
+- `randomCNIP=true` (query) or `--random-cn-ip` (server default, like upstream's `ENABLE_RANDOM_CN_IP`) fills
+  `X-Real-IP` / `X-Forwarded-For` with a random IP from `data/china_ip_ranges.txt` (taken from api-enhanced). One IP is
+  generated per run and reused, like upstream's `global.cnIp`. `randomCNIP=false` turns it off for one request.
+  A client address of `::1` also uses it. Not needed on a China network.
+- When NetEase answers `-460` (risk control) and no IP was chosen explicitly, the request is retried **once** with a
+  random Chinese IP. If it still fails the response gets an extra `neteasyHint` field (Chinese text); `code` / `msg` are
+  left untouched.
+
+## Lifecycle (Android / embedding)
+
+`spawn_server(opts)` runs the server on its own thread and returns after the port is bound; `ServerHandle::stop()` stops it
+and waits for the thread. JNI: `RustBackend.start(dataDir, port)`, `RustBackend.stop()`, `RustBackend.isRunning()`.
 
 ## CI
 

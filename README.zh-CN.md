@@ -70,9 +70,24 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 - **启动**：先绑定端口，xeapi 公钥和游客 token 在后台初始化。设备 ID、xeapi 公钥、游客 token 缓存在
   `--data-dir`，下次启动直接复用，热启动即刻可用（首次冷启动期间的请求会等待初始化，最长 20 秒）。
 - `register_anonimous` 沿用已保存的设备 ID，不再每次调用都重新生成（xeapi 的 `sk` 与设备 ID 绑定）。
-- 没有 2 分钟的 GET 响应缓存、没有 CORS 中间件、没有静态页面（只在本机回环地址给 App 用）。
+- GET 响应缓存（2 分钟，对应上游的 apicache）做得更保守：只缓存白名单里读多写少的路由，缓存键包含全部参数和登录身份（`MUSIC_U`），
+  带 `Set-Cookie` 或业务码不是 200 的响应一律不缓存。`--cache-ttl <秒>` 调整、`--no-cache` 关闭。没有 CORS 中间件、没有静态页面
+  （只在本机回环地址给 App 用）。
 - 未移植：`linuxapi`、`neapi`、`checkToken`（反作弊 v2/v3，只有发评论才需要，不在范围内）、`unblock`、代理、随机国内 IP。
 - `/login/qr/check` 在上游失败时表现为 404（上游 catch 里引用了作用域外变量，会抛 ReferenceError）。
+
+## 风控与随机中国 IP
+
+- `randomCNIP=true`（query 参数）或 `--random-cn-ip`（服务器默认，对应上游环境变量 `ENABLE_RANDOM_CN_IP`）会把
+  `X-Real-IP` / `X-Forwarded-For` 填成 `data/china_ip_ranges.txt`（取自 api-enhanced）里的随机 IP。和上游的 `global.cnIp`
+  一样，每次运行只生成一个并一直复用；`randomCNIP=false` 可对单次请求关闭；客户端地址是 `::1` 时同样会用它。国内网络不需要。
+- 网易云返回 `-460`（风控）且没有显式指定过 IP 时，会自动换一个随机中国 IP **重试一次**；仍然失败就在响应里多加一个
+  中文的 `neteasyHint` 字段，`code` / `msg` 保持原样不动。
+
+## 生命周期（Android / 嵌入使用）
+
+`spawn_server(opts)` 在独立线程里运行服务，端口绑定成功后才返回；`ServerHandle::stop()` 停止服务并等待线程退出。
+JNI：`RustBackend.start(dataDir, port)`、`RustBackend.stop()`、`RustBackend.isRunning()`。
 
 ## CI
 

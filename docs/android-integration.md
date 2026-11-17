@@ -27,6 +27,11 @@ object RustBackend {
 
     /** Returns true once the port is bound and connectable; false if it was already running or the bind failed. */
     @JvmStatic external fun start(dataDir: String, port: Int): Boolean
+
+    /** Stops the backend and waits for its thread; start() can be called again afterwards. */
+    @JvmStatic external fun stop(): Boolean
+
+    @JvmStatic external fun isRunning(): Boolean
 }
 ```
 
