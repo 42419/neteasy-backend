@@ -731,6 +731,7 @@ fn attach_risk_hint(a: &mut Answer, retried: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::fake_netease;
     use crate::util::option::Options;
 
     fn req() -> Request {
@@ -963,70 +964,6 @@ mod tests {
             .contains("已自动换用随机中国 IP"));
     }
 
-    /// 本地假的网易云服务：按顺序返回预设的 JSON，并记录每个请求带的 X-Real-IP。
-    /// 返回 (监听端口, 记录到的 IP 列表)。预设用完后一直重复最后一条。
-    fn fake_netease(responses: Vec<&'static str>) -> (u16, Arc<std::sync::Mutex<Vec<String>>>) {
-        use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
-        let seen2 = seen.clone();
-        std::thread::spawn(move || {
-            let mut n = 0usize;
-            for stream in listener.incoming() {
-                let Ok(mut stream) = stream else { break };
-                // 读到请求头结束，再把 body 读完
-                let mut buf = Vec::new();
-                let mut tmp = [0u8; 1024];
-                let header_end = loop {
-                    let k = stream.read(&mut tmp).unwrap_or(0);
-                    if k == 0 {
-                        break None;
-                    }
-                    buf.extend_from_slice(&tmp[..k]);
-                    if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
-                        break Some(i + 4);
-                    }
-                };
-                let Some(end) = header_end else { continue };
-                let head = String::from_utf8_lossy(&buf[..end]).to_string();
-                let len = head
-                    .lines()
-                    .find_map(|l| {
-                        l.to_ascii_lowercase()
-                            .strip_prefix("content-length:")
-                            .map(|v| v.trim().parse::<usize>().unwrap_or(0))
-                    })
-                    .unwrap_or(0);
-                while buf.len() < end + len {
-                    let k = stream.read(&mut tmp).unwrap_or(0);
-                    if k == 0 {
-                        break;
-                    }
-                    buf.extend_from_slice(&tmp[..k]);
-                }
-                let ip = head
-                    .lines()
-                    .find_map(|l| {
-                        l.to_ascii_lowercase()
-                            .strip_prefix("x-real-ip:")
-                            .map(|v| v.trim().to_string())
-                    })
-                    .unwrap_or_default();
-                seen2.lock().unwrap().push(ip);
-                let body = responses[n.min(responses.len() - 1)];
-                n += 1;
-                let _ = write!(
-                    stream,
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                    body.len(),
-                    body
-                );
-            }
-        });
-        (port, seen)
-    }
-
     fn weapi_opts(port: u16) -> Options {
         Options {
             crypto: "weapi".into(),
@@ -1049,7 +986,12 @@ mod tests {
             .await
             .expect("重试后应当成功");
         assert_eq!(ans.body["data"], "ok");
-        let ips = seen.lock().unwrap().clone();
+        let ips: Vec<String> = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|c| c.real_ip.clone())
+            .collect();
         assert_eq!(ips.len(), 2, "应当恰好请求两次: {ips:?}");
         assert_eq!(ips[0], "127.0.0.1", "第一次用客户端地址");
         assert_ne!(ips[1], "127.0.0.1", "重试换成了随机中国 IP");
@@ -1081,11 +1023,13 @@ mod tests {
         let mut o = weapi_opts(port);
         o.real_ip = "1.2.3.4".into();
         let err = r.request("/api/x", data(json!({})), o).await.unwrap_err();
-        assert_eq!(
-            seen.lock().unwrap().as_slice(),
-            ["1.2.3.4"],
-            "显式指定 IP 后不再自动重试"
-        );
+        let ips: Vec<String> = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|c| c.real_ip.clone())
+            .collect();
+        assert_eq!(ips, ["1.2.3.4"], "显式指定 IP 后不再自动重试");
         assert!(!err.body["neteasyHint"]
             .as_str()
             .unwrap()

@@ -184,6 +184,7 @@ pub fn generate_chinese_ip_with(rng: &mut impl Rng) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn cookie_roundtrip_keeps_equals_in_value() {
@@ -246,6 +247,12 @@ mod tests {
     }
 
     #[test]
+    fn obj_drops_null_fields_like_js_undefined() {
+        let d = obj(json!({ "id": "1", "cursor": Option::<Value>::None, "refresh": false }));
+        assert_eq!(Value::Object(d), json!({ "id": "1", "refresh": false }));
+    }
+
+    #[test]
     fn to_boolean_semantics() {
         assert!(to_boolean(&Value::String("true".into())));
         assert!(to_boolean(&Value::String("1".into())));
@@ -294,9 +301,15 @@ impl Query {
 }
 
 /// 由 `json!({...})` 字面量构造请求的 `data` 对象（保留插入顺序）。
+///
+/// 值为 `null` 的字段会被丢弃：对应 JS 里 `undefined` 在 `JSON.stringify` 时被省略
+///（比如没传 `cursor` 参数时，请求里就不应该有这个字段）。
 pub fn obj(v: Value) -> Data {
     match v {
-        Value::Object(m) => m,
+        Value::Object(mut m) => {
+            m.retain(|_, v| !v.is_null());
+            m
+        }
         _ => Data::new(),
     }
 }

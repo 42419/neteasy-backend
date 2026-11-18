@@ -105,7 +105,17 @@ fn rsa_encrypt_raw_hex(msg: &[u8]) -> String {
     h
 }
 
+#[cfg(test)]
+thread_local! {
+    /// 测试专用：固定 weapi 的随机密钥，这样测试可以解密 `params` 检查请求内容
+    pub static TEST_SECRET: std::cell::Cell<Option<[u8; 16]>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn random_secret_key() -> [u8; 16] {
+    #[cfg(test)]
+    if let Some(k) = TEST_SECRET.with(|c| c.get()) {
+        return k;
+    }
     let mut rng = rand::thread_rng();
     let mut k = [0u8; 16];
     for b in k.iter_mut() {
@@ -380,4 +390,40 @@ pub fn xeapi_decrypt_public_key(encrypted_b64: &str) -> Result<serde_json::Value
     let raw = STANDARD.decode(encrypted_b64)?;
     let dec = aes_ecb_decrypt(&xeapi_static_key(), &raw)?;
     Ok(serde_json::from_slice(&dec)?)
+}
+
+/// 测试专用的解密辅助：把请求体还原成明文 JSON，用来逐个核对各接口发出的参数。
+#[cfg(test)]
+pub mod test_decrypt {
+    use super::*;
+
+    fn cbc_decrypt(key: &[u8; 16], data: &[u8]) -> Vec<u8> {
+        cbc::Decryptor::<aes::Aes128>::new(key.into(), IV.into())
+            .decrypt_padded_vec_mut::<Pkcs7>(data)
+            .expect("cbc decrypt")
+    }
+
+    /// weapi：需要事先用 [`TEST_SECRET`] 固定过密钥
+    pub fn weapi_params(params_b64: &str, secret: &[u8; 16]) -> serde_json::Value {
+        let inner_b64 = cbc_decrypt(secret, &STANDARD.decode(params_b64).expect("b64"));
+        let plain = cbc_decrypt(PRESET_KEY, &STANDARD.decode(inner_b64).expect("inner b64"));
+        serde_json::from_slice(&plain).expect("weapi json")
+    }
+
+    /// eapi：返回 (url, 明文 JSON)，同时校验 md5 摘要
+    pub fn eapi_params(params_hex: &str) -> (String, serde_json::Value) {
+        let raw = hex::decode(params_hex).expect("hex");
+        let text = String::from_utf8(aes_ecb_decrypt(EAPI_KEY, &raw).expect("ecb")).expect("utf8");
+        let parts: Vec<&str> = text.split("-36cd479b6b5-").collect();
+        assert_eq!(parts.len(), 3, "eapi 明文格式不对: {text}");
+        assert_eq!(
+            parts[2],
+            md5_hex(&format!("nobody{}use{}md5forencrypt", parts[0], parts[1])),
+            "eapi 摘要不匹配"
+        );
+        (
+            parts[0].to_string(),
+            serde_json::from_str(parts[1]).expect("eapi json"),
+        )
+    }
 }

@@ -16,6 +16,9 @@ pub mod module;
 pub mod server;
 pub mod util;
 
+#[cfg(test)]
+mod test_support;
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::mpsc;
