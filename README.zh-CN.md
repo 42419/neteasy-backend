@@ -61,6 +61,11 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 | `/comment/new`、`/comment/like` | eapi / weapi | 已移植，国内网络实测通过 |
 | `/comment/add` | xeapi + checkToken v3 | 不做（发评论不在范围内，只做获取评论） |
 
+首页用到的接口（给 Flutter 版用）：`homepage/block/page`、`homepage/dragon/ball`、`program/recommend`、
+`personalized/newsong`、`personalized/djprogram`、标签歌单、`style/*`、`dj/*`、`top/artists`、`toplist/artist`、
+`voicelist/*` 已移植；请求的路径、加密方式和参数由测试解密核对，返回结构用游客身份联网检查过。
+详见 [docs/home-api.md](docs/home-api.md)。
+
 另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
 
 未移植（App 没用到）：上游 `module/` 里的其余全部接口。

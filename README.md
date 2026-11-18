@@ -48,6 +48,11 @@ Endpoints the app calls (from `ApiClient` usage), with upstream crypto mode:
 | `/comment/new`, `/comment/like` | eapi / weapi | ported, verified live on a China network |
 | `/comment/add` | xeapi + checkToken v3 | will not be implemented (posting comments is out of scope) |
 
+Home page endpoints for the Flutter app (`homepage/block/page`, `homepage/dragon/ball`, `program/recommend`,
+`personalized/newsong`, `personalized/djprogram`, tag playlists, `style/*`, `dj/*`, `top/artists`, `toplist/artist`,
+`voicelist/*`): ported; request path, crypto and params are verified by decrypting the outgoing requests in tests, and the
+response shapes were checked live as a guest. See [docs/home-api.md](docs/home-api.md).
+
 Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
 
 Not ported (unused by the app): everything else in upstream `module/`.
