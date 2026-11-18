@@ -37,6 +37,32 @@ jobs:
             echo "likelist(guest): $(r '/likelist?uid=1' | head -c 160)"
           } > results.txt
           cat results.txt
+          # ---- 首页区块：看真实返回里有哪些区块、每个区块的 creatives 长什么样
+          r '/homepage/block/page' > blocks.json
+          jq -r '.data.blocks[]? | "\(.blockCode) | \(.showType) | \(.uiElement.mainTitle.title // "-") | n=\(.creatives|length) | \((.creatives[0] // {}) | keys | join(","))"' blocks.json > blocks.txt 2>/dev/null || true
+          echo "block-page: code=$(jq -r '.code' blocks.json 2>/dev/null) hasMore=$(jq -r '.data.hasMore' blocks.json 2>/dev/null) cursor=$(jq -r '.data.cursor' blocks.json 2>/dev/null | head -c 30) blocks=$(wc -l < blocks.txt)" > blockhead.txt
+          cat blockhead.txt blocks.txt
+          # ---- 新增接口：只看 code 和顶层字段
+          k() { printf '%s' "$(r "$1")" | jq -c '{code, k: (keys | map(select(. != "code")))}' 2>/dev/null | head -c 180 || true; }
+          {
+            echo "dragon_ball: $(printf '%s' "$(r /homepage/dragon/ball)" | jq -c '[.data[]? | .name]' 2>/dev/null | head -c 300)"
+            echo "program_recommend: $(k /program/recommend)"
+            echo "personalized_newsong: $(k /personalized/newsong)"
+            echo "personalized_djprogram: $(k /personalized/djprogram)"
+            echo "top_playlist(说唱): $(k '/top/playlist?cat=%E8%AF%B4%E5%94%B1&limit=3')"
+            echo "playlist_catlist: $(k /playlist/catlist)"
+            echo "playlist_hot: $(k /playlist/hot)"
+            echo "top_playlist_highquality: $(k '/top/playlist/highquality?limit=3')"
+            echo "style_list: $(k /style/list)"
+            echo "dj_recommend: $(k /dj/recommend)"
+            echo "dj_program_toplist: $(k '/dj/program/toplist?limit=3')"
+            echo "top_artists: $(k '/top/artists?limit=3')"
+            echo "toplist_artist: $(k /toplist/artist)"
+            echo "style_preference(guest): $(k /style/preference)"
+          } > newapis.txt
+          cat newapis.txt
+          echo "::notice title=home-blocks::$( { cat blockhead.txt; cat blocks.txt; } | tr '\n\r%' '|  ' | head -c 3800)"
+          echo "::notice title=new-apis::$(tr '\n\r%' '|  ' < newapis.txt | head -c 3800)"
           echo "::notice title=results-1::$(sed -n 1,5p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=results-2::$(sed -n 6,14p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=server-log::$(tail -n 14 server.log | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 3500)"
