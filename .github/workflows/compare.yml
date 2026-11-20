@@ -56,6 +56,19 @@ jobs:
             cmp track_all "/playlist/track/all?id=3778678&limit=3" '{code, n:(.songs|length)}'
             cmp login_status "/login/status" '{code:.data.code, acct:(.data.account.id // null)}'
             cmp detail "/song/detail?ids=347230" '[.songs[]|.name]'
+            # 「我的」页里游客下出现 302 / 404 的接口：看上游 Node 版是否一样，区分「游客限制」和「移植问题」
+            cmp yunbei_expense "/yunbei/expense" '{code, msg}'
+            cmp yunbei_receipt "/yunbei/receipt" '{code, msg}'
+            cmp yunbei "/yunbei" '{code, msg}'
+            cmp yunbei_today "/yunbei/today" '{code, msg}'
+            cmp user_level "/user/level" '{code, msg}'
+            cmp listen_total "/listen/data/total" '{code, msg}'
+            cmp listen_report "/listen/data/report" '{code, msg}'
+            cmp listen_year "/listen/data/year/report" '{code, msg}'
+            cmp mlog "/mlog/mycollect" '{code, msg}'
+            cmp social_rcmd "/user/social/status/rcmd" '{code, msg}'
+            cmp user_account "/user/account" '{code, k:(keys)}'
+            cmp vip_info "/vip/info" '{code, msg}'
           } > cmp.txt
           cat cmp.txt
           echo "::notice title=compare::$(tr '\n\r%' '|  ' < cmp.txt | head -c 4000)"
