@@ -24,6 +24,8 @@ use std::time::{Duration, Instant};
 struct App {
     request: Request,
     routes: HashMap<String, ModuleFn>,
+    /// 全小写的路由表：和 Express 默认一样，路由匹配不区分大小写（比如 `/digitalAlbum/purchased`）
+    routes_ci: HashMap<String, ModuleFn>,
     cache: ResponseCache,
 }
 
@@ -161,13 +163,15 @@ pub fn build_app(request: Request) -> Router {
 
 /// `cache_ttl` 为 0 表示关闭响应缓存。
 pub fn build_app_with(request: Request, cache_ttl: Duration) -> Router {
-    let routes = registry()
+    let routes: HashMap<String, ModuleFn> = registry()
         .into_iter()
         .map(|(_, route, f)| (route, f))
         .collect();
+    let routes_ci = routes.iter().map(|(r, f)| (r.to_lowercase(), *f)).collect();
     Router::new().fallback(handle).with_state(Arc::new(App {
         request,
         routes,
+        routes_ci,
         cache: ResponseCache::new(cache_ttl),
     }))
 }
@@ -218,7 +222,12 @@ async fn handle(State(app): State<Arc<App>>, req: HttpRequest) -> Response {
     if path == "/" {
         return json_response(200, &json!({ "code": 200, "msg": "neteasy-backend" }), &[]);
     }
-    let Some(module) = app.routes.get(&path).copied() else {
+    let Some(module) = app
+        .routes
+        .get(&path)
+        .or_else(|| app.routes_ci.get(&path.to_lowercase()))
+        .copied()
+    else {
         return json_response(
             404,
             &json!({ "code": 404, "data": null, "msg": "Not Found" }),
@@ -352,6 +361,13 @@ mod tests {
             status,
             serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         )
+    }
+
+    #[tokio::test]
+    async fn routes_are_case_insensitive_like_express() {
+        // 路由存在时（即便后面联网失败）不应该是路由层的 404 "Not Found"
+        let (_, b) = get("/Login/QR/create?key=k").await;
+        assert_eq!(b["data"]["qrurl"], "https://music.163.com/login?codekey=k");
     }
 
     #[tokio::test]
