@@ -15,7 +15,7 @@ jobs:
       - run: cargo build --release
       - name: Run server and call endpoints
         run: |
-          ./target/release/neteasy-backend --port 19800 --data-dir "$RUNNER_TEMP/data" > server.log 2>&1 &
+          nohup ./target/release/neteasy-backend --port 19800 --data-dir "$RUNNER_TEMP/data" > server.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:19800/ >/dev/null && break; sleep 1; done
           sleep 12
           r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
@@ -71,7 +71,11 @@ jobs:
           done < <(cat blockhead.txt blocks.txt)
           echo "::notice title=dragon::$(tr -c '[:print:]' ' ' < dragon.txt | tr '%' ' ' | head -c 900)"
           echo "::notice title=new-apis::$(tr '\n\r%' '|  ' < newapis.txt | head -c 3800)"
-          # ---- 「我的」页接口：游客下需要登录的会返回 301，这也能证明路由和加密没问题
+      # 单独一个 step：GitHub 每个 step 最多显示 10 条 notice，上一个 step 已经用满了
+      # 游客下需要登录的接口会返回 301，这也能证明路由和加密没问题
+      - name: 「我的」页接口
+        run: |
+          r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
           PUB_UID=32953014
           routes=(
             /user/account "/user/detail/new?uid=$PUB_UID" /user/level /user/subcount "/user/medal?uid=$PUB_UID"
