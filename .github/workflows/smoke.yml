@@ -71,6 +71,34 @@ jobs:
           done < <(cat blockhead.txt blocks.txt)
           echo "::notice title=dragon::$(tr -c '[:print:]' ' ' < dragon.txt | tr '%' ' ' | head -c 900)"
           echo "::notice title=new-apis::$(tr '\n\r%' '|  ' < newapis.txt | head -c 3800)"
+          # ---- 「我的」页接口：游客下需要登录的会返回 301，这也能证明路由和加密没问题
+          UID=32953014
+          routes=(
+            /user/account "/user/detail/new?uid=$UID" /user/level /user/subcount "/user/medal?uid=$UID"
+            "/user/follows?uid=$UID&limit=2" "/user/followeds?uid=$UID&limit=2" "/user/binding?uid=$UID"
+            "/user/social/status?uid=$UID" /user/social/status/rcmd "/user/record?uid=$UID" "/user/playlist/collect?uid=$UID"
+            "/playmode/intelligence/list?id=347230&pid=3778678"
+            /record/recent/song /record/recent/playlist /record/recent/album /record/recent/video /record/recent/voice /record/recent/dj
+            /recent/listen/list /user/cloud "/user/cloud/detail?id=1" /yunbei /yunbei/info /yunbei/today /yunbei/tasks
+            /yunbei/tasks/todo /yunbei/task/list/v1 /yunbei/expense /yunbei/receipt
+            "/user/dj?uid=$UID" /dj/sublist /album/sublist /artist/sublist /mv/sublist /digitalAlbum/purchased /mlog/mycollect
+            /vip/info /vip/info/v2 /vip/growthpoint /vip/growthpoint/details /vip/tasks "/vip/tasks/v1?id=1" /vip/timemachine
+            /vip/sign/info "/vip/sign/detail?timestamp=$(date +%s000)" /vip/sign/history /signin/progress
+            /listen/data/total /listen/data/today/song /listen/data/year/report /listen/data/report /listen/data/realtime/report /listen/data/song/play/rank
+          )
+          : > profile.txt
+          for rt in "${routes[@]}"; do
+            out=$(printf '%s' "$(r "$rt")" | jq -c '{code, msg: (.msg // .message // null), k: (keys | map(select(. != "code" and . != "msg" and . != "message")) | .[0:5])}' 2>/dev/null | head -c 200)
+            [ -z "$out" ] && out="(非 JSON / 无响应)"
+            echo "${rt%%\?*} -> $out" >> profile.txt
+          done
+          cat profile.txt
+          split -l 14 profile.txt prof_
+          n=0
+          for f in prof_*; do
+            n=$((n+1))
+            echo "::notice title=profile$n::$(tr '\n\r%' '|  ' < "$f" | head -c 3800)"
+          done
           echo "::notice title=results-1::$(sed -n 1,5p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=results-2::$(sed -n 6,14p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=server-log::$(tail -n 14 server.log | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 3500)"
