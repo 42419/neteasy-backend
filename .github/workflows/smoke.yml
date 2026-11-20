@@ -72,16 +72,16 @@ jobs:
           echo "::notice title=dragon::$(tr -c '[:print:]' ' ' < dragon.txt | tr '%' ' ' | head -c 900)"
           echo "::notice title=new-apis::$(tr '\n\r%' '|  ' < newapis.txt | head -c 3800)"
           # ---- 「我的」页接口：游客下需要登录的会返回 301，这也能证明路由和加密没问题
-          UID=32953014
+          PUB_UID=32953014
           routes=(
-            /user/account "/user/detail/new?uid=$UID" /user/level /user/subcount "/user/medal?uid=$UID"
-            "/user/follows?uid=$UID&limit=2" "/user/followeds?uid=$UID&limit=2" "/user/binding?uid=$UID"
-            "/user/social/status?uid=$UID" /user/social/status/rcmd "/user/record?uid=$UID" "/user/playlist/collect?uid=$UID"
+            /user/account "/user/detail/new?uid=$PUB_UID" /user/level /user/subcount "/user/medal?uid=$PUB_UID"
+            "/user/follows?uid=$PUB_UID&limit=2" "/user/followeds?uid=$PUB_UID&limit=2" "/user/binding?uid=$PUB_UID"
+            "/user/social/status?uid=$PUB_UID" /user/social/status/rcmd "/user/record?uid=$PUB_UID" "/user/playlist/collect?uid=$PUB_UID"
             "/playmode/intelligence/list?id=347230&pid=3778678"
             /record/recent/song /record/recent/playlist /record/recent/album /record/recent/video /record/recent/voice /record/recent/dj
             /recent/listen/list /user/cloud "/user/cloud/detail?id=1" /yunbei /yunbei/info /yunbei/today /yunbei/tasks
             /yunbei/tasks/todo /yunbei/task/list/v1 /yunbei/expense /yunbei/receipt
-            "/user/dj?uid=$UID" /dj/sublist /album/sublist /artist/sublist /mv/sublist /digitalAlbum/purchased /mlog/mycollect
+            "/user/dj?uid=$PUB_UID" /dj/sublist /album/sublist /artist/sublist /mv/sublist /digitalAlbum/purchased /mlog/mycollect
             /vip/info /vip/info/v2 /vip/growthpoint /vip/growthpoint/details /vip/tasks "/vip/tasks/v1?id=1" /vip/timemachine
             /vip/sign/info "/vip/sign/detail?timestamp=$(date +%s000)" /vip/sign/history /signin/progress
             /listen/data/total /listen/data/today/song /listen/data/year/report /listen/data/report /listen/data/realtime/report /listen/data/song/play/rank
