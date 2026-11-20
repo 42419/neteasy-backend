@@ -84,7 +84,7 @@ jobs:
             "/playmode/intelligence/list?id=347230&pid=3778678"
             /record/recent/song /record/recent/playlist /record/recent/album /record/recent/video /record/recent/voice /record/recent/dj
             /recent/listen/list /user/cloud "/user/cloud/detail?id=1" /yunbei /yunbei/info /yunbei/today /yunbei/tasks
-            /yunbei/tasks/todo /yunbei/task/list/v1 /yunbei/expense /yunbei/receipt
+            /yunbei/tasks/todo /yunbei/task/list/v1
             "/user/dj?uid=$PUB_UID" /dj/sublist /album/sublist /artist/sublist /mv/sublist /digitalAlbum/purchased /mlog/mycollect
             /vip/info /vip/info/v2 /vip/growthpoint /vip/growthpoint/details /vip/tasks "/vip/tasks/v1?id=1" /vip/timemachine
             /vip/sign/info "/vip/sign/detail?timestamp=$(date +%s000)" /vip/sign/history /signin/progress

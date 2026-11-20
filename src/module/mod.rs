@@ -135,9 +135,7 @@ modules! {
     voicelist_detail,
     voicelist_list,
     yunbei,
-    yunbei_expense,
     yunbei_info,
-    yunbei_receipt,
     yunbei_task_list_v1,
     yunbei_tasks,
     yunbei_tasks_todo,
@@ -535,18 +533,6 @@ mod tests {
                 vec![],
                 "/weapi/ad/power/yunbei/distribution/list",
                 json!({}),
-            ),
-            (
-                "/yunbei/expense",
-                vec![],
-                "/eapi/point/expense",
-                json!({"limit":10,"offset":0}),
-            ),
-            (
-                "/yunbei/receipt",
-                vec![],
-                "/eapi/point/receipt",
-                json!({"limit":10,"offset":0}),
             ),
             (
                 "/user/dj",
