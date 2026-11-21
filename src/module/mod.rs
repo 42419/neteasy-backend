@@ -42,6 +42,10 @@ modules! {
     album_sublist,
     artist_sublist,
     banner,
+    broadcast_category_region_get,
+    broadcast_channel_collect_list,
+    broadcast_channel_currentinfo,
+    broadcast_channel_list,
     comment_like,
     comment_new,
     digitalAlbum_purchased,
@@ -75,6 +79,7 @@ modules! {
     playlist_catlist,
     playlist_detail,
     playlist_hot,
+    playlist_mylike,
     playlist_track_all,
     playmode_intelligence_list,
     program_recommend,
@@ -93,6 +98,7 @@ modules! {
     search_suggest,
     signin_progress,
     song_detail,
+    song_purchased,
     song_url_v1,
     style_artist,
     style_detail,
@@ -103,12 +109,14 @@ modules! {
     top_artists,
     top_playlist,
     top_playlist_highquality,
+    topic_sublist,
     toplist,
     toplist_artist,
     user_account,
     user_binding,
     user_cloud,
     user_cloud_detail,
+    user_comment_history,
     user_detail,
     user_detail_new,
     user_dj,
@@ -116,6 +124,7 @@ modules! {
     user_follows,
     user_level,
     user_medal,
+    user_mutualfollow_get,
     user_playlist,
     user_playlist_collect,
     user_record,
@@ -134,6 +143,7 @@ modules! {
     vip_timemachine,
     voicelist_detail,
     voicelist_list,
+    voicelist_my_created,
     yunbei,
     yunbei_info,
     yunbei_task_list_v1,
@@ -693,6 +703,87 @@ mod tests {
         ]
     }
 
+    /// 「音乐应用」页入口相关的接口：好友、评论、收藏和赞、已购、广播电台等
+    #[allow(clippy::type_complexity)]
+    fn apps_cases() -> Vec<(
+        &'static str,
+        Vec<(&'static str, &'static str)>,
+        &'static str,
+        Value,
+    )> {
+        vec![
+            (
+                "/user/mutualfollow/get",
+                vec![("uid", "123")],
+                "/eapi/user/mutualfollow/get",
+                json!({"friendid":"123"}),
+            ),
+            (
+                "/user/comment/history",
+                vec![("uid", "123")],
+                "/weapi/comment/user/comment/history",
+                json!({"compose_reminder":"true","compose_hot_comment":"true","limit":10,"user_id":"123","time":0}),
+            ),
+            (
+                "/topic/sublist",
+                vec![],
+                "/weapi/topic/sublist",
+                json!({"limit":50,"offset":0,"total":true}),
+            ),
+            (
+                "/playlist/mylike",
+                vec![],
+                "/weapi/mlog/playlist/mylike/bytime/get",
+                json!({"time":"-1","limit":"12"}),
+            ),
+            (
+                "/song/purchased",
+                vec![],
+                "/weapi/single/mybought/song/list",
+                json!({"limit":20,"offset":0}),
+            ),
+            (
+                "/broadcast/category/region/get",
+                vec![],
+                "/eapi/voice/broadcast/category/region/get",
+                json!({}),
+            ),
+            (
+                "/broadcast/channel/collect/list",
+                vec![],
+                "/eapi/content/channel/collect/list",
+                json!({"contentType":"BROADCAST","limit":"99999","timeReverseOrder":"true","startDate":"4762584922000"}),
+            ),
+            (
+                "/broadcast/channel/currentinfo",
+                vec![("id", "5")],
+                "/eapi/voice/broadcast/channel/currentinfo",
+                json!({"channelId":"5"}),
+            ),
+            (
+                "/broadcast/channel/list",
+                vec![],
+                "/eapi/voice/broadcast/channel/list",
+                json!({"categoryId":"0","regionId":"0","limit":"20","lastId":"0","score":"-1"}),
+            ),
+            (
+                "/voicelist/my/created",
+                vec![],
+                "/weapi/social/my/created/voicelist/v1",
+                json!({"limit":20}),
+            ),
+        ]
+    }
+
+    #[tokio::test]
+    async fn apps_modules_send_the_expected_path_crypto_and_params() {
+        for (route, params, want_path, want_data) in apps_cases() {
+            let (path, data) = call(route, &params).await;
+            assert_eq!(path, want_path, "{route}: 请求路径/加密方式不对");
+            assert_eq!(data, want_data, "{route}: 请求参数不对");
+        }
+    }
+
     #[tokio::test]
     async fn profile_modules_send_the_expected_path_crypto_and_params() {
         for (route, params, want_path, want_data) in profile_cases() {
@@ -714,7 +805,11 @@ mod tests {
     #[test]
     fn every_home_case_is_registered_and_names_follow_the_file_convention() {
         let routes: Vec<String> = registry().into_iter().map(|(_, r, _)| r).collect();
-        for (route, ..) in home_cases().into_iter().chain(profile_cases()) {
+        for (route, ..) in home_cases()
+            .into_iter()
+            .chain(profile_cases())
+            .chain(apps_cases())
+        {
             assert!(routes.contains(&route.to_string()), "{route} 没有注册");
         }
     }

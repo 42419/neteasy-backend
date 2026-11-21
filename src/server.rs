@@ -74,6 +74,9 @@ const CACHEABLE_ROUTES: &[&str] = &[
     "/toplist/artist",
     "/voicelist/detail",
     "/voicelist/list",
+    // 广播电台的公共列表（正在播放的节目 currentinfo 时效性强，不缓存）
+    "/broadcast/category/region/get",
+    "/broadcast/channel/list",
 ];
 
 const CACHE_MAX_ENTRIES: usize = 256;
