@@ -53,7 +53,7 @@ Home page endpoints for the Flutter app (`homepage/block/page`, `homepage/dragon
 `voicelist/*`): ported; request path, crypto and params are verified by decrypting the outgoing requests in tests, and the
 response shapes were checked live as a guest. See [docs/home-api.md](docs/home-api.md).
 
-Profile page endpoints (user info, VIP, recent play, cloud, yunbei, listen data, collections; 52 read-only routes):
+Profile page endpoints (user info, VIP, recent play, cloud, yunbei, listen data, collections; 62 read-only routes):
 ported, request verified in tests, checked live as a guest and compared with upstream on the same runner. State-changing
 routes (sign-in, claiming, follow, edit profile, playlist create/import) are intentionally not ported. See
 [docs/profile-api.md](docs/profile-api.md).

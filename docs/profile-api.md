@@ -25,16 +25,58 @@
 | 快捷入口「网盘」 | `/user/cloud`（列表）、`/user/cloud/detail?id=1,2`（详情） | 需要登录 |
 | 快捷入口「云贝」 | `/yunbei/info`、`/yunbei/tasks`、`/yunbei/tasks/todo`、`/yunbei/task/list/v1`；是否已签到 `/yunbei`、今日收支 `/yunbei/today` | `info`/`tasks` 联网通；后两个需要登录 |
 | 标签「播客」 | `/user/dj`（我创建的节目）、`/dj/sublist`（收藏的播客）、`/record/recent/dj` | 联网通 |
-| 标签「笔记」 | **来源未知**。你反馈没有 `mlog/mycollect` 这个接口，说明我猜错了。可选的上游模块只有 `mlog_*`、`user_event`、`playlist_video_recent` 几个，都不像「笔记」。需要抓一次官方客户端的请求才能确定（见第 4 节） | 待确认 |
+| 标签「笔记」 | **不做，用占位按钮：点击弹出 snackbar 提示“暂未支持”。** 最新的 api-enhanced 里有 `/mlog/mycollect`（收藏的 mlog 视频），但它不像「笔记」标签的数据，后端保留了这条路由，Flutter 不用接 | 已决定 |
 | 音乐 · `创建²` `收藏²` 的数字 | `/user/subcount` 的 `createdPlaylistCount`（含「我喜欢的音乐」）、`subPlaylistCount`；另有 `djRadioCount`（收藏的播客）、`artistCount`、`mvCount`、`programCount` | **已核对**（2 和 2） |
 | 音乐 · 歌单列表 | 已有的 `/user/playlist?uid=`：`creator.userId` 等于自己的是「创建」，否则是「收藏」；`specialType == 5` 是「我喜欢的音乐」。收藏的歌单还有 `/user/playlist/collect?uid=` | 联网通 |
-| 音乐 · `近期` 子标签 | 内容是**自己创建 + 收藏的歌单**（最多 30 条）再加一个「听歌排行」入口，不含「最近常听」里那些没收藏的歌单；排序依据待确认，需要对照 `/user/playlist` 的返回 | 待确认 |
+| 音乐 · `近期` 子标签 | `/user/playlist?uid=` 的结果（创建 + 收藏，最多 30 条）：**「我喜欢的音乐」（`specialType == 5`）固定排第一，其余按 `updateTime` 从新到旧**，最后接一个「听歌排行」入口。按你的数据推演，顺序正好是 我喜欢 → 星露谷 → 1 → 8090…；只有 4 条数据，规则是推断 | 与截图一致（推断） |
 | 「我喜欢的音乐」`110 首 · 2224 次播放` | `/user/playlist` 里该歌单的 `trackCount`、`playCount` | 已有接口 |
 | `心动模式` 按钮 | `/playmode/intelligence/list?id=<当前歌曲id>&pid=<我喜欢的音乐歌单id>` | 联网验证：用非「我喜欢」歌单会返回 `400 不支持该歌单类型`，所以 `pid` 必须是「我喜欢的音乐」 |
 | 「听歌排行」`累计听歌 8233 首` | 数量：`/user/detail/new` 的 `listenSongs`；`🔒`：`peopleCanSeeMyPlayRecord == false`；排行列表：`/user/record?uid=&type=0`（只能看自己的，别人返回 `-2 无权限`） | 数量和锁**已核对** |
 | 顶部「添加状态」 | 读取：`/user/social/status?uid=`；推荐状态：`/user/social/status/rcmd` | 前者联网通 |
 | 顶部搜索 | 已有 `/search` 等 | — |
 | `新建歌单`、`导入外部歌单`、`置顶` | **写操作，没有移植** | — |
+
+### 歌单列表每一项怎么显示（用 `/user/playlist` 的返回核对过）
+
+| 显示 | 取法 |
+|---|---|
+| 名称 | `name`；`specialType == 5` 是「我喜欢的音乐」，接口里的名字是「<昵称>喜欢的音乐」，界面上要显示成「我喜欢的音乐」 |
+| 封面 | `coverImgUrl` |
+| 歌曲数 | **`trackCount + cloudTrackCount`**（云盘里的歌也算；截图里的 110 首就是 107 + 3） |
+| 副标题 | 「我喜欢的音乐」：`<歌曲数>首 · <playCount>次播放`；其他歌单：`歌单 · <歌曲数>首 · <creator.nickname>` |
+| 创建 / 收藏 | `creator.userId` 等于自己，或 `subscribed == false` 是创建；`subscribed == true` 是收藏（`创建²` 包含「我喜欢的音乐」） |
+| 共享歌单 | `specialType == 300`，`sharedUsers` 里有自己；也算收藏 |
+
+## 「音乐应用」页（点宫格图标进入）
+
+页面分三组，下面是每个入口对应的接口；没有接口的做占位图标（点击弹 snackbar）：
+
+| 入口 | 接口 | 状态 |
+|---|---|---|
+| **个人页展示**（4 个可调整的快捷入口） | | |
+| 最近播放 | `/record/recent/*` | 有 |
+| 本地下载 | 客户端本地功能 | 无接口 |
+| 网盘 | `/user/cloud`、`/user/cloud/detail` | 有 |
+| 我的云贝 | `/yunbei/info`、`/yunbei/tasks`、`/yunbei/tasks/todo` | 有 |
+| **功能应用** | | |
+| 已购 | `/digitalAlbum/purchased`（数字专辑）、`/song/purchased`（单曲） | 有 |
+| 我的好友 | `/user/follows`、`/user/followeds`、`/user/mutualfollow/get?uid=`（是否互相关注） | 有 |
+| 收藏和赞 | 收藏：`/album/sublist`、`/artist/sublist`、`/mv/sublist`、`/dj/sublist`、`/topic/sublist`；赞：`/playlist/mylike`（赞过的歌单 / 视频）、已有的 `/likelist` | 有 |
+| 我的歌词本 | — | 占位 |
+| 装扮 | — | 占位 |
+| 乐迷团 | 上游的 `fanscenter_*` 是音乐人后台的粉丝数据，不是这个入口 | 占位 |
+| 歌单助手 | — | 占位 |
+| 我的钱包 | — | 占位 |
+| 我的评论 | `/user/comment/history?uid=` | 有 |
+| 推歌参谋 | — | 占位 |
+| 我的会员 | `/vip/info/v2`、`/vip/growthpoint`、`/vip/tasks`、`/vip/timemachine` 等 | 有 |
+| 双人空间 | 上游的 `listentogether_*` 是「一起听」，不是这个入口 | 占位 |
+| 徽章 | `/user/medal` | 有 |
+| **场景声音** | | |
+| 我的播客 | `/user/dj`、`/dj/sublist`、`/record/recent/dj`、`/voicelist/my/created` | 有 |
+| 助眠解压 | — | 占位 |
+| 推歌精选 | — | 占位 |
+| 广播电台 | `/broadcast/category/region/get`（分类和地区）、`/broadcast/channel/list`（列表）、`/broadcast/channel/collect/list`（收藏）、`/broadcast/channel/currentinfo?id=`（当前节目） | 有（点进去的播放逻辑未验证） |
 
 ## 2. 会员相关（不止徽章）
 
@@ -77,9 +119,6 @@ final recordPrivate = detail['peopleCanSeeMyPlayRecord'] == false;
 
 ## 5. 还没有确认的
 
-1. **「笔记」标签的数据来源**：`mlog/mycollect` 不对。请告诉我你当时看到的是什么：路由 404、返回空数据，还是返回需要登录？
-   如果上游里没有对应接口，就只能抓一次官方客户端「我的 → 笔记」标签的请求（用 mitmproxy、HttpCanary 之类，
-   只要请求路径、参数名和返回体的前几项，**不要带 cookie**），我再按抓到的接口移植。
-2. **`近期` 标签的排序**：需要 `/user/playlist?uid=<你的uid>` 的返回，对照 `updateTime`、`specialType`、`subscribed` 和你截图里的顺序。
-3. **右上角宫格图标**里面有哪些入口：点开截一张图给我。
-4. **`SVIP` 与 `VIP` 徽章的区分规则**：目前只是推断，没有未开通 SVIP 的账号可以对照。
+1. **`SVIP` 与 `VIP` 徽章的区分规则**：目前只是推断，没有未开通 SVIP 的账号可以对照。
+2. **广播电台点进去之后的播放**：我只核对了列表和当前节目的请求，没有验证播放地址从哪取。
+3. **「近期」排序规则**：只有 4 条数据，是推断；数据更多时如果和官方客户端对不上，把 `/user/playlist` 的返回和截图再发我对一下。

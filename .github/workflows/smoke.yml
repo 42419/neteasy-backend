@@ -89,6 +89,8 @@ jobs:
             /vip/info /vip/info/v2 /vip/growthpoint /vip/growthpoint/details /vip/tasks "/vip/tasks/v1?id=1" /vip/timemachine
             /vip/sign/info "/vip/sign/detail?timestamp=$(date +%s000)" /vip/sign/history /signin/progress
             /listen/data/total /listen/data/today/song /listen/data/year/report /listen/data/report /listen/data/realtime/report /listen/data/song/play/rank
+            "/user/mutualfollow/get?uid=$PUB_UID" "/user/comment/history?uid=$PUB_UID" /topic/sublist /playlist/mylike /song/purchased
+            /broadcast/category/region/get /broadcast/channel/list /broadcast/channel/collect/list "/broadcast/channel/currentinfo?id=1" /voicelist/my/created
           )
           : > profile.txt
           for rt in "${routes[@]}"; do
