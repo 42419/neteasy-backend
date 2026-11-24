@@ -67,6 +67,12 @@ jobs:
             cmp social_rcmd "/user/social/status/rcmd" '{code, msg}'
             cmp user_account "/user/account" '{code, k:(keys)}'
             cmp vip_info "/vip/info" '{code, msg}'
+            # 搜索和听歌打点：和上游在同一台机器上对比
+            cmp cloudsearch "/cloudsearch?keywords=%E6%B5%B7%E9%98%94%E5%A4%A9%E7%A9%BA&limit=2" '{code, n:(.result.songs|length), first:(.result.songs[0].name)}'
+            cmp search_default "/search/default" '{code, kw:.data.showKeyword}'
+            cmp search_hot_detail "/search/hot/detail" '{code, n:(.data|length)}'
+            cmp search_multimatch "/search/multimatch?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6" '{code, rk:(.result|keys)}'
+            cmp scrobble "/scrobble?id=347230&sourceid=3778678&time=30" '{code, data, details: (.details|keys)}'
           } > cmp.txt
           cat cmp.txt
           echo "::notice title=compare::$(tr '\n\r%' '|  ' < cmp.txt | head -c 4000)"

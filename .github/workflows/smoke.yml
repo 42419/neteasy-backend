@@ -108,3 +108,19 @@ jobs:
           echo "::notice title=results-1::$(sed -n 1,5p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=results-2::$(sed -n 6,14p results.txt | tr '\n\r%' '|  ' | head -c 3500)"
           echo "::notice title=server-log::$(tail -n 14 server.log | tr -c '[:print:]' ' ' | tr '%' ' ' | head -c 3500)"
+      # 搜索和听歌打点：真实服务器上的返回结构。scrobble 用的是游客账号，只写一条游客的听歌记录
+      - name: 搜索与打点
+        run: |
+          r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
+          KW=%E6%B5%B7%E9%98%94%E5%A4%A9%E7%A9%BA
+          {
+            echo "cloudsearch(单曲): $(r "/cloudsearch?keywords=$KW&limit=2" | jq -c '{code, rk: (.result | keys), n: (.result.songs | length), first: (.result.songs[0] | {id, name, keys: (keys | .[0:14])})}' 2>/dev/null | head -c 700)"
+            echo "cloudsearch(歌单 1000): $(r "/cloudsearch?keywords=$KW&type=1000&limit=2" | jq -c '{code, rk: (.result | keys), first: (.result.playlists[0] | {id, name})}' 2>/dev/null | head -c 400)"
+            echo "cloudsearch(歌手 100): $(r "/cloudsearch?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&type=100&limit=1" | jq -c '{code, rk: (.result | keys), first: (.result.artists[0] | {id, name})}' 2>/dev/null | head -c 300)"
+            echo "search_default: $(r /search/default | jq -c '{code, data: (.data | keys), kw: .data.showKeyword}' 2>/dev/null | head -c 300)"
+            echo "search_hot_detail: $(r /search/hot/detail | jq -c '{code, n: (.data | length), first: (.data[0] | keys)}' 2>/dev/null | head -c 300)"
+            echo "search_multimatch: $(r "/search/multimatch?keywords=$KW" | jq -c '{code, rk: (.result | keys), orders: .result.orders}' 2>/dev/null | head -c 300)"
+            echo "scrobble: $(r '/scrobble?id=347230&sourceid=3778678&time=30' | head -c 500)"
+          } > search.txt
+          cat search.txt
+          echo "::notice title=search-scrobble::$(tr -c '[:print:]' ' ' < search.txt | tr '%' ' ' | head -c 3800)"
