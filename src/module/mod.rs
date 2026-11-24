@@ -46,6 +46,7 @@ modules! {
     broadcast_channel_collect_list,
     broadcast_channel_currentinfo,
     broadcast_channel_list,
+    cloudsearch,
     comment_like,
     comment_new,
     digitalAlbum_purchased,
@@ -93,8 +94,12 @@ modules! {
     record_recent_voice,
     register_anonimous,
     register_xeapikey,
+    scrobble,
     search,
+    search_default,
     search_hot,
+    search_hot_detail,
+    search_multimatch,
     search_suggest,
     signin_progress,
     song_detail,
@@ -161,9 +166,11 @@ mod tests {
 
     const SECRET: [u8; 16] = *b"abcdefghijklmnop";
 
-    /// 对 `route` 发一次请求到本地假服务，返回 (请求路径, 解密还原后的请求数据)。
-    /// 请求里每次都会自动附带的 `e_r` / `csrf_token` / `header` 会被去掉，只留模块自己写的参数。
-    async fn call(route: &str, params: &[(&str, &str)]) -> (String, Value) {
+    /// 对 `route` 调用模块，请求发到本地假服务；返回假服务收到的全部请求（有的模块会连发多次请求）。
+    async fn run_module(
+        route: &str,
+        params: &[(&str, &str)],
+    ) -> Vec<crate::test_support::Captured> {
         // 固定 weapi 的随机密钥，才能解密 params
         TEST_SECRET.with(|c| c.set(Some(SECRET)));
         let (port, seen) = fake_netease(vec![r#"{"code":200}"#]);
@@ -197,15 +204,20 @@ mod tests {
         handler(query, &request)
             .await
             .unwrap_or_else(|e| panic!("{route} 返回错误: {}", e.body));
+        let captured = seen.lock().unwrap().clone();
+        captured
+    }
 
-        let captured = seen.lock().unwrap()[0].clone();
+    /// 还原一个请求：返回 (请求路径, 解密后的请求数据)。
+    /// 请求里每次都会自动附带的 `e_r` / `csrf_token` / `header` 会被去掉，只留模块自己写的参数。
+    fn decode(captured: &crate::test_support::Captured) -> (String, Value) {
         // xeapi 的请求体（C / S / R）无法在测试里解密，只能核对路径
         if captured.path.starts_with("/xeapi/") {
             assert!(
                 captured.field("C").is_some() && captured.field("S").is_some(),
                 "xeapi 缺少 C/S 字段"
             );
-            return (captured.path, Value::Null);
+            return (captured.path.clone(), Value::Null);
         }
         let params_field = captured.field("params").expect("缺少 params 字段");
         let mut data = if captured.path.starts_with("/weapi/") {
@@ -220,7 +232,12 @@ mod tests {
                 m.remove(k);
             }
         }
-        (captured.path, data)
+        (captured.path.clone(), data)
+    }
+
+    /// 对 `route` 发一次请求，返回第一个请求的 (路径, 解密后的数据)
+    async fn call(route: &str, params: &[(&str, &str)]) -> (String, Value) {
+        decode(&run_module(route, params).await[0])
     }
 
     /// 首页相关的新接口：(路由, 请求参数, 期望的上游路径, 期望的请求数据)
@@ -782,6 +799,111 @@ mod tests {
             assert_eq!(path, want_path, "{route}: 请求路径/加密方式不对");
             assert_eq!(data, want_data, "{route}: 请求参数不对");
         }
+    }
+
+    /// 搜索相关接口
+    #[allow(clippy::type_complexity)]
+    fn search_cases() -> Vec<(
+        &'static str,
+        Vec<(&'static str, &'static str)>,
+        &'static str,
+        Value,
+    )> {
+        vec![
+            (
+                "/cloudsearch",
+                vec![("keywords", "海阔天空"), ("type", "1000"), ("limit", "10")],
+                "/eapi/cloudsearch/pc",
+                json!({ "s": "海阔天空", "type": "1000", "limit": "10", "offset": 0, "total": true }),
+            ),
+            // 没传 keywords 时请求里不应该有 s 字段（对应 JS 的 undefined）
+            (
+                "/cloudsearch",
+                vec![],
+                "/eapi/cloudsearch/pc",
+                json!({ "type": 1, "limit": 30, "offset": 0, "total": true }),
+            ),
+            (
+                "/search/default",
+                vec![],
+                "/eapi/search/defaultkeyword/get",
+                json!({}),
+            ),
+            (
+                "/search/hot/detail",
+                vec![],
+                "/weapi/hotsearchlist/get",
+                json!({}),
+            ),
+            (
+                "/search/multimatch",
+                vec![("keywords", "周杰伦")],
+                "/weapi/search/suggest/multimatch",
+                json!({ "type": 1, "s": "周杰伦" }),
+            ),
+            (
+                "/search/multimatch",
+                vec![],
+                "/weapi/search/suggest/multimatch",
+                json!({ "type": 1, "s": "" }),
+            ),
+        ]
+    }
+
+    #[tokio::test]
+    async fn search_modules_send_the_expected_path_crypto_and_params() {
+        for (route, params, want_path, want_data) in search_cases() {
+            let (path, data) = call(route, &params).await;
+            assert_eq!(path, want_path, "{route}: 请求路径/加密方式不对");
+            assert_eq!(data, want_data, "{route}: 请求参数不对");
+        }
+    }
+
+    #[tokio::test]
+    async fn scrobble_sends_startplay_then_play_with_the_osx_identity() {
+        let reqs = run_module(
+            "/scrobble",
+            &[("id", "347230"), ("sourceid", "3778678"), ("time", "187")],
+        )
+        .await;
+        assert_eq!(reqs.len(), 2, "应当连发 startplay 和 play 两次请求");
+        let logs = |i: usize| -> Value {
+            let (path, data) = decode(&reqs[i]);
+            assert_eq!(path, "/eapi/feedback/weblog");
+            serde_json::from_str(data["logs"].as_str().expect("logs 是 JSON 字符串")).unwrap()
+        };
+        assert_eq!(
+            logs(0),
+            json!([{ "action": "startplay", "json": {
+                "id": "347230", "type": "song", "mainsite": "1", "mainsiteWeb": "1",
+                "content": "id=3778678" } }])
+        );
+        assert_eq!(
+            logs(1),
+            json!([{ "action": "play", "json": {
+                "download": 0, "end": "playend", "id": "347230", "sourceId": "3778678",
+                "time": "187", "type": "song", "wifi": 0, "source": "list",
+                "mainsite": "1", "mainsiteWeb": "1", "content": "id=3778678" } }])
+        );
+        // 上游用的是 os=osx 的身份：cookie 里是 os=osx，UA 是桌面版的
+        for r in &reqs {
+            assert!(
+                r.cookie.contains("os=osx"),
+                "cookie 里应有 os=osx: {}",
+                r.cookie
+            );
+            assert!(r.user_agent.contains("Macintosh"), "UA: {}", r.user_agent);
+        }
+    }
+
+    #[tokio::test]
+    async fn scrobble_omits_missing_fields_like_js_undefined() {
+        let reqs = run_module("/scrobble", &[("id", "1")]).await;
+        let (_, data) = decode(&reqs[1]);
+        let logs: Value = serde_json::from_str(data["logs"].as_str().unwrap()).unwrap();
+        let play = &logs[0]["json"];
+        assert!(play.get("time").is_none() && play.get("sourceId").is_none());
+        assert_eq!(play["content"], "id=undefined");
     }
 
     #[tokio::test]

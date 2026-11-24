@@ -10,6 +10,10 @@ pub struct Captured {
     pub path: String,
     /// 请求头里的 X-Real-IP（没有则为空）
     pub real_ip: String,
+    /// 请求头里的 Cookie（没有则为空）
+    pub cookie: String,
+    /// 请求头里的 User-Agent（没有则为空）
+    pub user_agent: String,
     /// 表单 body 解码后的键值对（weapi 是 params / encSecKey，eapi 是 params，xeapi 是 C / S / R）
     pub form: Vec<(String, String)>,
 }
@@ -80,12 +84,23 @@ pub fn fake_netease(responses: Vec<&'static str>) -> (u16, Seen) {
                         .map(|v| v.trim().to_string())
                 })
                 .unwrap_or_default();
+            let header = |name: &str| {
+                head.lines()
+                    .find_map(|l| {
+                        let (k, v) = l.split_once(':')?;
+                        k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
+                    })
+                    .unwrap_or_default()
+            };
+            let (cookie, user_agent) = (header("cookie"), header("user-agent"));
             let body = String::from_utf8_lossy(&buf[end..]).to_string();
             let form =
                 serde_urlencoded::from_str::<Vec<(String, String)>>(&body).unwrap_or_default();
             seen2.lock().unwrap().push(Captured {
                 path,
                 real_ip,
+                cookie,
+                user_agent,
                 form,
             });
 

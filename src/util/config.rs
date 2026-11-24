@@ -4,6 +4,8 @@ pub const API_DOMAIN: &str = "https://interface.music.163.com";
 pub const EAPI_DOMAIN: &str = "https://interfacepc.music.163.com";
 pub const XEAPI_DOMAIN: &str = "https://interface3.music.163.com";
 pub const DOMAIN: &str = "https://music.163.com";
+/// 听歌打点（scrobble）用的客户端日志域名，对应上游 `APP_CONF.clDomian`
+pub const CL_DOMAIN: &str = "https://clientlog.music.163.com";
 
 /// 对应 `APP_CONF.encrypt`：为 true 时默认加密方式是 eapi，否则是明文 api。
 pub const ENCRYPT: bool = true;
