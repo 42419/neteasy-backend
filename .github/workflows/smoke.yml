@@ -124,3 +124,19 @@ jobs:
           } > search.txt
           cat search.txt
           echo "::notice title=search-scrobble::$(tr -c '[:print:]' ' ' < search.txt | tr '%' ' ' | head -c 3800)"
+      # 「关注」页：动态流、关注关系、话题。游客下需要登录的接口返回 301；follow / resource/like 是写操作，这里不调用
+      - name: 关注页接口
+        run: |
+          r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
+          PUB_UID=32953014
+          {
+            echo "event(关注动态流): $(r /event | jq -c '{code, msg: (.msg // .message), k: (keys | map(select(. != "code")) | .[0:6])}' 2>/dev/null | head -c 300)"
+            echo "user_event(公开用户): $(r "/user/event?uid=$PUB_UID&limit=2" | jq -c '{code, more, lasttime, n: (.events | length), ev0: (.events[0] // {} | keys | .[0:14])}' 2>/dev/null | head -c 500)"
+            echo "user_follow_mixed: $(r '/user/follow/mixed?size=2' | jq -c '{code, msg: (.msg // .message), k: (keys | map(select(. != "code")) | .[0:6])}' 2>/dev/null | head -c 300)"
+            echo "user_follows(公开用户): $(r "/user/follows?uid=$PUB_UID&limit=2" | jq -c '{code, more, n: (.follow | length), f0: (.follow[0] // {} | keys | .[0:8])}' 2>/dev/null | head -c 400)"
+            echo "hot_topic: $(r '/hot/topic?limit=2' | jq -c '{code, k: (keys | map(select(. != "code")) | .[0:6]), n: ((.hot // []) | length), t0: ((.hot // [])[0] // {} | keys | .[0:10])}' 2>/dev/null | head -c 500)"
+            echo "event_search: $(r '/event/search?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&limit=2' | jq -c '{code, k: (keys | map(select(. != "code")) | .[0:6])}' 2>/dev/null | head -c 300)"
+            echo "comment_event(无效id): $(r '/comment/event?threadId=A_EV_2_1' | head -c 160)"
+          } > follow.txt
+          cat follow.txt
+          echo "::notice title=follow-page::$(tr -c '[:print:]' ' ' < follow.txt | tr '%' ' ' | head -c 3800)"

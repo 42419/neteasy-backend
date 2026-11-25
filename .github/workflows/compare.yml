@@ -73,6 +73,12 @@ jobs:
             cmp search_hot_detail "/search/hot/detail" '{code, n:(.data|length)}'
             cmp search_multimatch "/search/multimatch?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6" '{code, rk:(.result|keys)}'
             cmp scrobble "/scrobble?id=347230&sourceid=3778678&time=30" '{code, data, details: (.details|keys)}'
+            # 「关注」页：动态流、公开用户的动态、话题
+            cmp event "/event" '{code, msg}'
+            cmp user_event "/user/event?uid=32953014&limit=2" '{code, more, n:(.events|length)}'
+            cmp user_follow_mixed "/user/follow/mixed?size=2" '{code, msg}'
+            cmp hot_topic "/hot/topic?limit=2" '{code, n:((.hot // [])|length)}'
+            cmp event_search "/event/search?keywords=%E5%91%A8%E6%9D%B0%E4%BC%A6&limit=2" '{code, k:(keys)}'
           } > cmp.txt
           cat cmp.txt
           echo "::notice title=compare::$(tr '\n\r%' '|  ' < cmp.txt | head -c 4000)"
