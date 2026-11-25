@@ -79,6 +79,10 @@ const CACHEABLE_ROUTES: &[&str] = &[
     "/voicelist/detail",
     "/voicelist/list",
     // 广播电台的公共列表（正在播放的节目 currentinfo 时效性强，不缓存）
+    // 话题（公共内容）。动态流 /event 和关注关系是个人数据，不缓存
+    "/hot/topic",
+    "/topic/detail",
+    "/topic/detail/event/hot",
     "/broadcast/category/region/get",
     "/broadcast/channel/list",
 ];

@@ -47,6 +47,7 @@ modules! {
     broadcast_channel_currentinfo,
     broadcast_channel_list,
     cloudsearch,
+    comment_event,
     comment_like,
     comment_new,
     digitalAlbum_purchased,
@@ -56,8 +57,12 @@ modules! {
     dj_program_toplist,
     dj_recommend,
     dj_sublist,
+    event,
+    event_search,
+    follow,
     homepage_block_page,
     homepage_dragon_ball,
+    hot_topic,
     like,
     likelist,
     listen_data_realtime_report,
@@ -94,6 +99,7 @@ modules! {
     record_recent_voice,
     register_anonimous,
     register_xeapikey,
+    resource_like,
     scrobble,
     search,
     search_default,
@@ -114,6 +120,8 @@ modules! {
     top_artists,
     top_playlist,
     top_playlist_highquality,
+    topic_detail,
+    topic_detail_event_hot,
     topic_sublist,
     toplist,
     toplist_artist,
@@ -125,6 +133,8 @@ modules! {
     user_detail,
     user_detail_new,
     user_dj,
+    user_event,
+    user_follow_mixed,
     user_followeds,
     user_follows,
     user_level,
@@ -906,6 +916,142 @@ mod tests {
         assert_eq!(play["content"], "id=undefined");
     }
 
+    /// 「关注」页相关的接口：动态流、关注关系、话题，以及关注 / 点赞两个操作
+    #[allow(clippy::type_complexity)]
+    fn follow_cases() -> Vec<(
+        &'static str,
+        Vec<(&'static str, &'static str)>,
+        &'static str,
+        Value,
+    )> {
+        vec![
+            (
+                "/event",
+                vec![],
+                "/weapi/v1/event/get",
+                json!({"pagesize":20,"lasttime":-1}),
+            ),
+            (
+                "/user/event",
+                vec![("uid", "123")],
+                "/eapi/event/get/123",
+                json!({"getcounts":true,"time":-1,"limit":30,"total":false,"fromRN":"true"}),
+            ),
+            (
+                "/user/event",
+                vec![("uid", "123"), ("lasttime", "5"), ("limit", "10")],
+                "/eapi/event/get/123",
+                json!({"getcounts":true,"time":"5","limit":"10","total":false,"fromRN":"true"}),
+            ),
+            (
+                "/user/follow/mixed",
+                vec![],
+                "/eapi/user/follow/users/mixed/get/v2",
+                json!({"authority":"false","page":"{\"size\":30,\"cursor\":0}","scene":0,"size":30,"sortType":"0"}),
+            ),
+            (
+                "/user/follow/mixed",
+                vec![("size", "10"), ("cursor", "5"), ("scene", "2")],
+                "/eapi/user/follow/users/mixed/get/v2",
+                json!({"authority":"false","page":"{\"size\":\"10\",\"cursor\":\"5\"}","scene":"2","size":"10","sortType":"0"}),
+            ),
+            (
+                "/comment/event",
+                vec![("threadId", "A_EV_2_1")],
+                "/weapi/v1/resource/comments/A_EV_2_1",
+                json!({"limit":20,"offset":0,"beforeTime":0}),
+            ),
+            (
+                "/event/search",
+                vec![("keywords", "周杰伦")],
+                "/weapi/event/search/list/get/v1",
+                json!({"keyword":"周杰伦","limit":30,"offset":0}),
+            ),
+            (
+                "/event/search",
+                vec![("keyword", "a"), ("keywords", "b")],
+                "/weapi/event/search/list/get/v1",
+                json!({"keyword":"a","limit":30,"offset":0}),
+            ),
+            (
+                "/hot/topic",
+                vec![],
+                "/weapi/act/hot",
+                json!({"limit":20,"offset":0}),
+            ),
+            (
+                "/topic/detail",
+                vec![("actid", "9")],
+                "/weapi/act/detail",
+                json!({"actid":"9"}),
+            ),
+            (
+                "/topic/detail/event/hot",
+                vec![("actid", "9")],
+                "/weapi/act/event/hot",
+                json!({"actid":"9"}),
+            ),
+            (
+                "/follow",
+                vec![("id", "123"), ("t", "1")],
+                "/weapi/user/follow/123",
+                json!({}),
+            ),
+            (
+                "/follow",
+                vec![("id", "123")],
+                "/weapi/user/delfollow/123",
+                json!({}),
+            ),
+            // 评论点赞：评论动态时没传 threadId，字段应当省略而不是 null
+            (
+                "/comment/like",
+                vec![("t", "1"), ("type", "0"), ("id", "5"), ("cid", "9")],
+                "/weapi/v1/comment/like",
+                json!({ "threadId": "R_SO_4_5", "commentId": "9" }),
+            ),
+            (
+                "/comment/like",
+                vec![("t", "1"), ("type", "6"), ("id", "5"), ("cid", "9")],
+                "/weapi/v1/comment/like",
+                json!({ "commentId": "9" }),
+            ),
+            (
+                "/follow",
+                vec![("id", "123"), ("t", "2")],
+                "/weapi/user/delfollow/123",
+                json!({}),
+            ),
+            (
+                "/resource/like",
+                vec![("t", "1"), ("type", "0"), ("id", "5")],
+                "/weapi/resource/like",
+                json!({"threadId":"R_SO_4_5"}),
+            ),
+            (
+                "/resource/like",
+                vec![("type", "0"), ("id", "5")],
+                "/weapi/resource/unlike",
+                json!({"threadId":"R_SO_4_5"}),
+            ),
+            (
+                "/resource/like",
+                vec![("t", "1"), ("type", "6"), ("threadId", "A_EV_2_77")],
+                "/weapi/resource/like",
+                json!({"threadId":"A_EV_2_77"}),
+            ),
+        ]
+    }
+
+    #[tokio::test]
+    async fn follow_modules_send_the_expected_path_crypto_and_params() {
+        for (route, params, want_path, want_data) in follow_cases() {
+            let (path, data) = call(route, &params).await;
+            assert_eq!(path, want_path, "{route}: 请求路径/加密方式不对");
+            assert_eq!(data, want_data, "{route}: 请求参数不对");
+        }
+    }
+
     #[tokio::test]
     async fn profile_modules_send_the_expected_path_crypto_and_params() {
         for (route, params, want_path, want_data) in profile_cases() {
@@ -930,6 +1076,7 @@ mod tests {
         for (route, ..) in home_cases()
             .into_iter()
             .chain(profile_cases())
+            .chain(follow_cases())
             .chain(apps_cases())
         {
             assert!(routes.contains(&route.to_string()), "{route} 没有注册");

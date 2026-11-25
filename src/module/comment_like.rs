@@ -13,7 +13,11 @@ pub async fn handle(query: Query, request: &Request) -> AnswerResult {
         "commentId": query.val("cid"),
     }));
     if rtype == Some("A_EV_2_") {
-        data.insert("threadId".into(), json!(query.val("threadId")));
+        // 动态：用请求里的 threadId；没传时和 JS 的 undefined 一样，字段不出现
+        match query.val("threadId") {
+            Some(v) => data.insert("threadId".into(), v),
+            None => data.remove("threadId"),
+        };
     }
     request.request(&format!("/api/v1/comment/{t}"), data, create_option(&query, "weapi")).await
 }
