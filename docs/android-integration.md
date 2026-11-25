@@ -2,8 +2,9 @@
 
 [中文在下方 / Chinese below](#中文)
 
-The backend ships as `libneteasy_backend.so` (one per ABI). It exposes one JNI function and serves the same
-HTTP API on `127.0.0.1:19800`, so `ApiClient` and the OkHttp cookie jar keep working unchanged.
+The backend ships as `libneteasy_backend.so` (one per ABI). It exposes three JNI functions (`start`, `stop`,
+`isRunning`) and serves the same HTTP API on `127.0.0.1:19800`, so `ApiClient` and the OkHttp cookie jar keep
+working unchanged.
 
 ## 1. Get the libraries
 
@@ -62,8 +63,8 @@ connection-refused retry loop in `ApiClient` is no longer needed on cold start (
 
 ## 中文
 
-后端以 `libneteasy_backend.so`（每个 ABI 一份）交付，只导出一个 JNI 函数，对外仍是 `127.0.0.1:19800` 的同一套
-HTTP 接口，所以 `ApiClient` 和 OkHttp 的 CookieJar 都不用改。
+后端以 `libneteasy_backend.so`（每个 ABI 一份）交付，导出三个 JNI 函数（`start` / `stop` / `isRunning`），
+对外仍是 `127.0.0.1:19800` 的同一套 HTTP 接口，所以 `ApiClient` 和 OkHttp 的 CookieJar 都不用改。
 
 ### 1. 拿到动态库
 
