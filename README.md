@@ -58,6 +58,10 @@ ported, request verified in tests, checked live as a guest and compared with ups
 routes (sign-in, claiming, follow, edit profile, playlist create/import) are intentionally not ported. See
 [docs/profile-api.md](docs/profile-api.md).
 
+Playback and search endpoints: `scrobble` (listening report, sent as startplay + play like upstream) and the search set
+(`cloudsearch`, `search/default`, `search/hot/detail`, `search/multimatch`): ported; request verified in tests, response
+structure and parity with upstream checked live as a guest. See [docs/search-scrobble-api.md](docs/search-scrobble-api.md).
+
 Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
 
 Not ported (unused by the app): everything else in upstream `module/`.

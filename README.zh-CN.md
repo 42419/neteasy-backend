@@ -70,6 +70,10 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 并用游客身份联网检查、和上游在同一台机器上对比过。会改动账号状态的接口（签到、领取、关注、改资料、新建/导入歌单）有意没有移植。
 详见 [docs/profile-api.md](docs/profile-api.md)。
 
+播放和搜索用到的接口：`scrobble`（听歌打点，和上游一样分 startplay + play 两步上报）和搜索一套（`cloudsearch`、
+`search/default`、`search/hot/detail`、`search/multimatch`）：已移植，请求由测试核对，返回结构并与上游的对比用游客身份联网检查过。
+详见 [docs/search-scrobble-api.md](docs/search-scrobble-api.md)。
+
 另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
 
 未移植（App 没用到）：上游 `module/` 里的其余全部接口。
