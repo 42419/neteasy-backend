@@ -1,6 +1,6 @@
 [package]
 name = "neteasy-backend"
-version = "0.1.0"
+version = "0.6.0"
 edition = "2021"
 description = "Embedded NetEase Cloud Music API backend for neteasy (Rust rewrite of the endpoints actually used)"
 license = "MIT"

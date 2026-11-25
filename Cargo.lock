@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "neteasy-backend"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "aes",
  "aes-gcm",
