@@ -62,6 +62,10 @@ Playback and search endpoints: `scrobble` (listening report, sent as startplay +
 (`cloudsearch`, `search/default`, `search/hot/detail`, `search/multimatch`): ported; request verified in tests, response
 structure and parity with upstream checked live as a guest. See [docs/search-scrobble-api.md](docs/search-scrobble-api.md).
 
+Follow page endpoints (`event` feed, `user/event`, `user/follow/mixed`, `comment/event`, `event/search`, hot topics) plus the page's
+own actions `follow` and `resource/like`: ported; request verified in tests, feed item structure checked live with a public user.
+Forwarding, deleting, privacy and sharing of events are intentionally not ported. See [docs/follow-api.md](docs/follow-api.md).
+
 Also ported (as upstream routes): `/register/anonimous`, `/register/xeapikey` (used by the bootstrap).
 
 Not ported (unused by the app): everything else in upstream `module/`.

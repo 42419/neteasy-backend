@@ -74,6 +74,10 @@ App 实际调用的接口（取自 `ApiClient` 的用法），以及上游使用
 `search/default`、`search/hot/detail`、`search/multimatch`）：已移植，请求由测试核对，返回结构并与上游的对比用游客身份联网检查过。
 详见 [docs/search-scrobble-api.md](docs/search-scrobble-api.md)。
 
+「关注」页用到的接口（`event` 动态流、`user/event`、`user/follow/mixed`、`comment/event`、`event/search`、热门话题），
+以及这个页面自己的两个操作 `follow`（关注 / 取关）和 `resource/like`（点赞）：已移植，请求由测试核对，动态条目的结构用公开用户联网检查过。
+动态的转发、删除、改隐私和分享有意没有移植。详见 [docs/follow-api.md](docs/follow-api.md)。
+
 另外按上游路由移植了 `/register/anonimous`、`/register/xeapikey`（启动初始化要用）。
 
 未移植（App 没用到）：上游 `module/` 里的其余全部接口。
