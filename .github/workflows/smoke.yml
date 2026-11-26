@@ -140,3 +140,19 @@ jobs:
           } > follow.txt
           cat follow.txt
           echo "::notice title=follow-page::$(tr -c '[:print:]' ' ' < follow.txt | tr '%' ' ' | head -c 3800)"
+      # 动态条目的关键字段：json 字段是不是字符串、里面有什么
+      - name: 动态条目结构
+        run: |
+          r() { curl -s -m 30 "http://127.0.0.1:19800$1"; }
+          r "/user/event?uid=32953014&limit=3" > ev.json
+          {
+            echo "top: $(jq -c '{code, more, lasttime, size, keys: (keys | .[0:12])}' ev.json 2>/dev/null | head -c 300)"
+            echo "item: $(jq -c '.events[0] | {id, type, eventTime, uuid, user: (.user | {userId, nickname}), jsonType: (.json | type), info: (.info | keys), pics: (.pics | length), topEvent: .topEvent, forwardCount, expireTime}' ev.json 2>/dev/null | head -c 600)"
+            echo "json: $(jq -c '.events[0].json | fromjson | keys' ev.json 2>/dev/null | head -c 500)"
+            echo "json.msg: $(jq -r '.events[0].json | fromjson | .msg' ev.json 2>/dev/null | head -c 80)"
+            echo "json.song: $(jq -c '.events[0].json | fromjson | (.song // {}) | {id, name, keys: (keys | .[0:10])}' ev.json 2>/dev/null | head -c 300)"
+            echo "types: $(jq -c '[.events[] | .type]' ev.json 2>/dev/null | head -c 200)"
+            echo "info: $(jq -c '.events[0].info | {commentThread: (.commentThread | {id, commentCount, likedCount}), liked, likedCount, commentCount, shareCount}' ev.json 2>/dev/null | head -c 400)"
+          } > evitem.txt
+          cat evitem.txt
+          echo "::notice title=event-item::$(tr -c '[:print:]' ' ' < evitem.txt | tr '%' ' ' | head -c 3800)"
